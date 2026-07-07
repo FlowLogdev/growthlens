@@ -1,36 +1,94 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GrowthLens
 
-## Getting Started
+Multi-tenant social growth SaaS. Customers connect their Facebook Page, Instagram
+Business account, and TikTok Business account and get a dashboard of historical
+metrics plus weekly Claude-generated organic growth recommendations. Billing via
+Stripe subscriptions.
 
-First, run the development server:
+**Domain:** usegrowthlens.com
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Scaffolded from `social-growth-saas-spec.md`. See that file for the full product
+spec — this README covers what's implemented and how to run it.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Next.js 16 (App Router) — the spec named Next.js 14, bumped to the current
+  major since this is a fresh project
+- Supabase (Auth + Postgres with Row Level Security)
+- Stripe (subscriptions + customer portal)
+- Anthropic Claude API (`claude-sonnet-4-6`)
+- Resend (weekly digest email)
+- Recharts, Tailwind CSS
+- Vercel (hosting + Cron, configured via `vercel.ts`)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## What's implemented (Phase 1 — Foundation, plus scaffolding for later phases)
 
-## Learn More
+- Database schema + RLS policies for every tenant table (`supabase/migrations/`)
+- Supabase Auth: email/password + Google OAuth, signup creates a `customers` row
+- Stripe Checkout, customer portal, and an idempotent webhook handler
+  (`stripe_events` table dedupes retried webhook deliveries)
+- Meta and TikTok OAuth connect flows, kept in separate integration modules
+  (`src/lib/integrations/meta.ts`, `tiktok.ts`) so a review delay on one
+  platform doesn't block the other
+- Access/refresh tokens encrypted at rest (AES-256-GCM, `src/lib/encryption.ts`)
+  before being written to `platform_accounts`
+- Fan-out cron pattern (`src/app/api/cron/*`): a lightweight trigger route
+  enqueues one job per account instead of looping through all customers in a
+  single invocation
+- TikTok token-refresh cron (tokens expire in 24h) and a Claude analysis job
+  with the prompt template from the spec, wired to a weekly insights cron and
+  digest email
+- Dashboard shell with all 8 pages from the spec (overview, connect, per-platform,
+  posts, insights, links, billing, settings)
+- Public Privacy Policy / Terms / Data Deletion pages required for Meta App
+  Review — **Privacy Policy and Terms are placeholders and must be replaced
+  with real legal copy before submitting for review**
 
-To learn more about Next.js, take a look at the following resources:
+## Not yet implemented / left for later phases
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Per the spec's build phases (Section 14), still open:
+- Meta App Review submission (demo video, permission justification writeup)
+- TikTok audit submission
+- Manual CSV fallback for TikTok while its review is pending
+- Production-grade rate limiting on OAuth callbacks (current one is
+  in-memory, single-instance only — see `src/lib/rate-limit.ts`)
+- Charts (Recharts is installed but not yet wired into the per-platform page)
+- Link-in-bio click tracking redirect endpoint (the `link_clicks` table and
+  dashboard page exist; nothing writes to the table yet)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Setup
 
-## Deploy on Vercel
+1. Copy `.env.example` to `.env.local` and fill in every value. Generate
+   `TOKEN_ENCRYPTION_KEY` with `openssl rand -hex 32`.
+2. Create a Supabase project, then run the migrations in
+   `supabase/migrations/` against it (via the Supabase SQL editor or the
+   Supabase CLI).
+3. In Supabase Auth settings, enable Google as an OAuth provider if you want
+   the "Continue with Google" button to work.
+4. Create Stripe products/prices for the Starter and Pro tiers and set
+   `STRIPE_PRICE_ID_STARTER` / `STRIPE_PRICE_ID_PRO`. Point a Stripe webhook
+   at `/api/stripe/webhook` for `checkout.session.completed`,
+   `customer.subscription.updated`, and `customer.subscription.deleted`.
+5. Create a Meta app (Facebook Login for Business) and a TikTok developer app;
+   set the app ID/secret and redirect URI env vars to
+   `https://usegrowthlens.com/api/oauth/{meta,tiktok}/callback` in production
+   (or your `NEXT_PUBLIC_SITE_URL` locally). Both stay in "development mode"
+   (usable only by your own test account) until Advanced Access / audit
+   approval per Section 7 of the spec.
+6. `npm install`
+7. `npm run dev`
+8. On Vercel, add `usegrowthlens.com` as the project's production domain and
+   set `NEXT_PUBLIC_SITE_URL=https://usegrowthlens.com` in the production
+   environment variables.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Cron jobs
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Defined in `vercel.ts` (Vercel's current recommended config format, replacing
+`vercel.json`):
+- `/api/cron/trigger-syncs` — every 6h, fans out one sync per active account
+- `/api/cron/refresh-tokens` — every 6h, refreshes TikTok tokens expiring soon
+- `/api/cron/generate-insights` — weekly, fans out Claude analysis per account
+- `/api/cron/send-digests` — weekly, one Resend email per customer
+
+All cron-triggered routes require `Authorization: Bearer $CRON_SECRET`, which
+Vercel Cron sends automatically in production.
