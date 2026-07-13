@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function signUp(formData: FormData) {
   const email = String(formData.get("email"));
@@ -17,10 +18,15 @@ export async function signUp(formData: FormData) {
 
   const authUserId = data.user?.id;
   if (authUserId) {
-    // Creates the tenant row. subscription_status defaults to 'trialing' in
-    // the schema, so this customer can use the dashboard immediately and
-    // pick a plan (Stripe Checkout) at any point before the trial ends.
-    const { error: insertError } = await supabase.from("customers").insert({
+    // Provision the tenant row with the service-role client: when email
+    // confirmation is required, signUp() returns no session, so the caller
+    // isn't authenticated yet and the RLS policy on customers (auth_user_id
+    // = auth.uid()) would reject this insert under the normal user client.
+    // subscription_status defaults to 'trialing' in the schema, so this
+    // customer can use the dashboard immediately and pick a plan (Stripe
+    // Checkout) at any point before the trial ends.
+    const adminSupabase = createAdminClient();
+    const { error: insertError } = await adminSupabase.from("customers").insert({
       auth_user_id: authUserId,
       email,
       business_name: businessName || null,
