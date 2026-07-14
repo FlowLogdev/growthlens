@@ -18,27 +18,67 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase.auth.admin.createUser({
+  let userId: string;
+
+  const created = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
   });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  if (created.error) {
+    if (!created.error.message.includes("already been registered")) {
+      return NextResponse.json({ error: created.error.message }, { status: 400 });
+    }
+
+    // User already exists from a prior failed signup attempt — find them
+    // and reset their password + confirm their email instead of creating.
+    let existingUserId: string | undefined;
+    let page = 1;
+    while (!existingUserId) {
+      const { data: list, error: listError } = await supabase.auth.admin.listUsers({
+        page,
+        perPage: 200,
+      });
+      if (listError) {
+        return NextResponse.json({ error: listError.message }, { status: 400 });
+      }
+      existingUserId = list.users.find((u) => u.email === email)?.id;
+      if (existingUserId || list.users.length < 200) break;
+      page += 1;
+    }
+
+    if (!existingUserId) {
+      return NextResponse.json({ error: "user reported as duplicate but not found" }, { status: 500 });
+    }
+
+    const { error: updateError } = await supabase.auth.admin.updateUserById(existingUserId, {
+      password,
+      email_confirm: true,
+    });
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 400 });
+    }
+
+    userId = existingUserId;
+  } else {
+    userId = created.data.user.id;
   }
 
-  const { error: insertError } = await supabase.from("customers").insert({
-    auth_user_id: data.user.id,
-    email,
-    business_name: "GrowthLens Admin",
-    subscription_status: "active",
-    plan_tier: "business",
-  });
+  const { error: upsertError } = await supabase.from("customers").upsert(
+    {
+      auth_user_id: userId,
+      email,
+      business_name: "GrowthLens Admin",
+      subscription_status: "active",
+      plan_tier: "business",
+    },
+    { onConflict: "auth_user_id" },
+  );
 
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 400 });
+  if (upsertError) {
+    return NextResponse.json({ error: upsertError.message }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, user_id: data.user.id });
+  return NextResponse.json({ ok: true, user_id: userId });
 }
