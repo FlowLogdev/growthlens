@@ -1,11 +1,12 @@
 import { requireCurrentCustomer } from "@/lib/current-customer";
+import { getAccountLimit } from "@/lib/plans";
 
 export default async function ConnectPage({
   searchParams,
 }: {
-  searchParams: Promise<{ connected?: string; error?: string }>;
+  searchParams: Promise<{ connected?: string; error?: string; limit?: string }>;
 }) {
-  const { connected, error } = await searchParams;
+  const { connected, error, limit } = await searchParams;
   const { supabase, customer } = await requireCurrentCustomer();
 
   const { data: accounts } = await supabase
@@ -25,6 +26,15 @@ export default async function ConnectPage({
         </p>
       )}
       {error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {limit && (
+        <p className="rounded bg-amber-50 p-3 text-sm text-amber-800">
+          Your available accounts were connected up to the {getAccountLimit(customer.plan_tier)}-account limit for this plan.
+        </p>
+      )}
+
+      <p className="text-sm text-gray-500">
+        {accounts?.length ?? 0} of {getAccountLimit(customer.plan_tier)} connected accounts used.
+      </p>
 
       <div className="grid grid-cols-2 gap-6">
         <div className="rounded border border-gray-200 p-5">

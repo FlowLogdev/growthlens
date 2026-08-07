@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAccountLimit } from "@/lib/plans";
 import { encryptToken } from "@/lib/encryption";
 import { verifyOAuthState } from "@/lib/oauth-state";
 import { isRateLimited } from "@/lib/rate-limit";
@@ -35,6 +36,27 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient();
     const expiresAt = new Date(Date.now() + tokenResponse.expires_in * 1000).toISOString();
+
+    const [{ data: customer }, { data: existingAccounts }] = await Promise.all([
+      supabase.from("customers").select("plan_tier").eq("id", customerId).single(),
+      supabase
+        .from("platform_accounts")
+        .select("platform, account_id")
+        .eq("customer_id", customerId),
+    ]);
+
+    if (!customer) {
+      return NextResponse.redirect(`${siteUrl}/dashboard/connect?error=Customer account not found`);
+    }
+
+    const alreadyConnected = (existingAccounts ?? []).some(
+      (account) => account.platform === "tiktok" && account.account_id === tokenResponse.open_id,
+    );
+    if (!alreadyConnected && (existingAccounts?.length ?? 0) >= getAccountLimit(customer.plan_tier)) {
+      return NextResponse.redirect(
+        `${siteUrl}/dashboard/connect?error=${encodeURIComponent("Your plan's connected account limit has been reached.")}`,
+      );
+    }
 
     await supabase.from("platform_accounts").upsert(
       {

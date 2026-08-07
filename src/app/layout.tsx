@@ -1,20 +1,37 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "GrowthLens",
-  description: "Weekly AI-generated organic growth recommendations for your social accounts.",
+  metadataBase: new URL("https://usegrowthlens.com"),
+  title: {
+    default: "GrowthLens | AI social growth intelligence",
+    template: "%s | GrowthLens",
+  },
+  description:
+    "Connect your social channels and get evidence-backed AI recommendations for organic growth.",
+  openGraph: {
+    title: "GrowthLens | AI social growth intelligence",
+    description:
+      "Connect your social channels and turn performance data into a practical weekly growth plan.",
+    url: "https://usegrowthlens.com",
+    siteName: "GrowthLens",
+    images: [
+      {
+        url: "/brand/growthlens-hero.png",
+        width: 1536,
+        height: 1024,
+        alt: "GrowthLens social data streams converging into a growth signal",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GrowthLens | AI social growth intelligence",
+    description: "Turn your social signals into a sharper weekly growth plan.",
+    images: ["/brand/growthlens-hero.png"],
+  },
 };
 
 export default function RootLayout({
@@ -23,11 +40,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className="h-full antialiased">
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }
