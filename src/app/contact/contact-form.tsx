@@ -1,11 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
-import {
-  createSupportTicket,
-  initialContactFormState,
-  type ContactFormState,
-} from "./actions";
+import { createSupportTicket, type ContactFormState } from "./actions";
+
+const initialContactFormState: ContactFormState = {
+  status: "idle",
+  message: "",
+};
 
 function FieldError({ errors }: { errors?: string[] }) {
   if (!errors?.length) return null;

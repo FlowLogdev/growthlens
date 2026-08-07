@@ -41,11 +41,6 @@ export type ContactFormState = {
   fieldErrors?: Partial<Record<TicketField, string[]>>;
 };
 
-export const initialContactFormState: ContactFormState = {
-  status: "idle",
-  message: "",
-};
-
 export async function createSupportTicket(
   _previousState: ContactFormState,
   formData: FormData,
