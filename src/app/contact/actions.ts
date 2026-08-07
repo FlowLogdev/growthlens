@@ -3,9 +3,9 @@
 import { headers } from "next/headers";
 import { z } from "zod";
 import { isRateLimited } from "@/lib/rate-limit";
-import { hasProductAccess } from "@/lib/entitlements";
 import { sendSupportTicketEmail } from "@/lib/resend/support";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { isResendConfigured } from "@/lib/resend/client";
+import { createAdminClient, isAdminClientConfigured } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const ticketSchema = z.object({
@@ -26,6 +26,13 @@ const ticketSchema = z.object({
 });
 
 type TicketField = "name" | "email" | "subject" | "description";
+
+type TicketReceipt = {
+  ticket_id: string;
+  ticket_number: string;
+  created_at: string;
+  priority: "standard" | "priority";
+};
 
 export type ContactFormState = {
   status: "idle" | "error" | "success" | "warning";
@@ -69,101 +76,112 @@ export async function createSupportTicket(
     return { status: "success", message: "Your request has been received." };
   }
 
-  const requestHeaders = await headers();
-  const forwardedFor = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const requestKey = forwardedFor || requestHeaders.get("x-real-ip") || "unknown";
+  try {
+    const requestHeaders = await headers();
+    const forwardedFor = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const requestKey = forwardedFor || requestHeaders.get("x-real-ip") || "unknown";
 
-  if (
-    isRateLimited(`support:${requestKey}:${parsed.data.email}`, {
-      windowMs: 10 * 60_000,
-      maxRequests: 3,
-    })
-  ) {
-    return {
-      status: "error",
-      message: "Too many requests were submitted. Please wait 10 minutes and try again.",
-    };
-  }
-
-  let customerId: string | null = null;
-  let priority: "standard" | "priority" = "standard";
-
-  const sessionClient = await createClient();
-  const {
-    data: { user },
-  } = await sessionClient.auth.getUser();
-
-  if (user) {
-    const { data: customer } = await sessionClient
-      .from("customers")
-      .select("id, plan_tier, subscription_status, trial_ends_at")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
-
-    if (customer) {
-      customerId = customer.id;
-      priority =
-        hasProductAccess(customer) &&
-        (customer.plan_tier === "pro" || customer.plan_tier === "business")
-          ? "priority"
-          : "standard";
+    if (
+      isRateLimited(`support:${requestKey}:${parsed.data.email}`, {
+        windowMs: 10 * 60_000,
+        maxRequests: 3,
+      })
+    ) {
+      return {
+        status: "error",
+        message: "Too many requests were submitted. Please wait 10 minutes and try again.",
+      };
     }
-  }
 
-  const admin = createAdminClient();
-  const { data: ticket, error: insertError } = await admin
-    .from("support_tickets")
-    .insert({
-      customer_id: customerId,
-      name: parsed.data.name,
-      email: parsed.data.email,
-      subject: parsed.data.subject,
-      description: parsed.data.description,
-      priority,
-    })
-    .select("ticket_number, created_at")
-    .single();
+    const supabase = await createClient();
+    const { data, error: insertError } = await supabase
+      .rpc("create_support_ticket", {
+        p_name: parsed.data.name,
+        p_email: parsed.data.email,
+        p_subject: parsed.data.subject,
+        p_description: parsed.data.description,
+      })
+      .single();
+    const ticket = data as TicketReceipt | null;
 
-  if (insertError || !ticket) {
-    console.error("Could not create GrowthLens support ticket", insertError?.message);
+    if (insertError || !ticket) {
+      const rateLimited = insertError?.message.includes("rate_limited");
+      console.error("Could not create GrowthLens support ticket", insertError?.message);
+      return {
+        status: "error",
+        message: rateLimited
+          ? "Too many requests were submitted. Please wait 10 minutes and try again."
+          : "We could not open your ticket right now. Please email support@flowlog.dev directly.",
+      };
+    }
+
+    const markDelivery = async (status: "sent" | "failed", providerId: string | null = null) => {
+      if (!isAdminClientConfigured()) return;
+
+      try {
+        const admin = createAdminClient();
+        const { error } = await admin
+          .from("support_tickets")
+          .update({
+            email_delivery_status: status,
+            email_provider_id: status === "sent" ? providerId : null,
+          })
+          .eq("id", ticket.ticket_id);
+
+        if (error) {
+          console.error("Could not update GrowthLens ticket delivery status", error.message);
+        }
+      } catch (error) {
+        console.error(
+          "Could not update GrowthLens ticket delivery status",
+          (error as Error).message,
+        );
+      }
+    };
+
+    if (!isResendConfigured()) {
+      await markDelivery("failed");
+      return {
+        status: "warning",
+        message:
+          "Your ticket is recorded. Email delivery is being configured, so please keep this ticket number.",
+        ticketNumber: ticket.ticket_number,
+      };
+    }
+
+    try {
+      const providerId = await sendSupportTicketEmail({
+        ticketNumber: ticket.ticket_number,
+        name: parsed.data.name,
+        email: parsed.data.email,
+        subject: parsed.data.subject,
+        description: parsed.data.description,
+        priority: ticket.priority,
+        createdAt: new Date(ticket.created_at).toISOString(),
+      });
+
+      await markDelivery("sent", providerId);
+
+      return {
+        status: "success",
+        message: "Your ticket is open. We emailed a copy to you and the GrowthLens support team.",
+        ticketNumber: ticket.ticket_number,
+      };
+    } catch (error) {
+      await markDelivery("failed");
+      console.error("GrowthLens support ticket email failed", (error as Error).message);
+      return {
+        status: "warning",
+        message:
+          "Your ticket is recorded, but the email copy is delayed. Support can still see your request.",
+        ticketNumber: ticket.ticket_number,
+      };
+    }
+  } catch (error) {
+    console.error("Unexpected GrowthLens support ticket failure", (error as Error).message);
     return {
       status: "error",
       message: "We could not open your ticket right now. Please email support@flowlog.dev directly.",
-    };
-  }
-
-  try {
-    const providerId = await sendSupportTicketEmail({
-      ticketNumber: ticket.ticket_number,
-      name: parsed.data.name,
-      email: parsed.data.email,
-      subject: parsed.data.subject,
-      description: parsed.data.description,
-      priority,
-      createdAt: new Date(ticket.created_at).toISOString(),
-    });
-
-    await admin
-      .from("support_tickets")
-      .update({ email_delivery_status: "sent", email_provider_id: providerId })
-      .eq("ticket_number", ticket.ticket_number);
-
-    return {
-      status: "success",
-      message: "Your ticket is open. We emailed a copy to you and the GrowthLens support team.",
-      ticketNumber: ticket.ticket_number,
-    };
-  } catch (error) {
-    await admin
-      .from("support_tickets")
-      .update({ email_delivery_status: "failed" })
-      .eq("ticket_number", ticket.ticket_number);
-
-    console.error("GrowthLens support ticket email failed", (error as Error).message);
-    return {
-      status: "warning",
-      message: "Your ticket is recorded, but the email copy is delayed. Support can still see your request.",
-      ticketNumber: ticket.ticket_number,
     };
   }
 }
