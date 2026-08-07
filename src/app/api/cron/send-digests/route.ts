@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hasProductAccess } from "@/lib/entitlements";
 import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 import { sendWeeklyDigestEmail } from "@/lib/resend/digest";
 import type { AiInsightResult } from "@/lib/anthropic/analyze";
@@ -41,11 +42,11 @@ export async function GET(request: NextRequest) {
   for (const [customerId, customerInsights] of byCustomer) {
     const { data: customer } = await supabase
       .from("customers")
-      .select("email, business_name")
+      .select("email, business_name, subscription_status, trial_ends_at")
       .eq("id", customerId)
       .single();
 
-    if (!customer?.email) {
+    if (!customer?.email || !hasProductAccess(customer)) {
       failed++;
       continue;
     }

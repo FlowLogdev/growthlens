@@ -36,53 +36,74 @@ export async function POST(request: NextRequest) {
     .insert({ id: event.id, type: event.type });
 
   if (insertError) {
-    // Unique violation on `id` means we've already processed this event.
-    return NextResponse.json({ received: true, duplicate: true });
+    if (insertError.code === "23505") {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+
+    return NextResponse.json({ error: "Could not record webhook event" }, { status: 500 });
   }
 
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const customerId = session.metadata?.customer_id;
-      const planTier = session.metadata?.plan_tier;
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const customerId = session.metadata?.customer_id;
+        const planTier = session.metadata?.plan_tier;
 
-      if (customerId) {
-        await supabase
-          .from("customers")
-          .update({
-            stripe_customer_id: session.customer as string,
-            stripe_subscription_id: session.subscription as string,
-            subscription_status: "active",
-            plan_tier: planTier ?? "starter",
-          })
-          .eq("id", customerId);
+        if (customerId) {
+          const stripeCustomerId =
+            typeof session.customer === "string" ? session.customer : session.customer?.id;
+          const stripeSubscriptionId =
+            typeof session.subscription === "string"
+              ? session.subscription
+              : session.subscription?.id;
+          const { error } = await supabase
+            .from("customers")
+            .update({
+              stripe_customer_id: stripeCustomerId,
+              stripe_subscription_id: stripeSubscriptionId,
+              subscription_status: "active",
+              plan_tier: planTier ?? "starter",
+            })
+            .eq("id", customerId);
+
+          if (error) throw error;
+        }
+        break;
       }
-      break;
-    }
 
-    case "customer.subscription.updated":
-    case "customer.subscription.deleted": {
-      const subscription = event.data.object as Stripe.Subscription;
-      const customerId = subscription.metadata?.customer_id;
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.metadata?.customer_id;
 
-      const statusUpdate = {
-        subscription_status:
-          event.type === "customer.subscription.deleted" ? "canceled" : subscription.status,
-      };
+        const statusUpdate = {
+          subscription_status:
+            event.type === "customer.subscription.deleted" ? "canceled" : subscription.status,
+          ...(event.type === "customer.subscription.deleted"
+            ? { stripe_subscription_id: null }
+            : {}),
+        };
 
-      if (customerId) {
-        await supabase.from("customers").update(statusUpdate).eq("id", customerId);
-      } else {
-        await supabase
-          .from("customers")
-          .update(statusUpdate)
-          .eq("stripe_subscription_id", subscription.id);
+        const update = customerId
+          ? supabase.from("customers").update(statusUpdate).eq("id", customerId)
+          : supabase
+              .from("customers")
+              .update(statusUpdate)
+              .eq("stripe_subscription_id", subscription.id);
+        const { error } = await update;
+
+        if (error) throw error;
+        break;
       }
-      break;
-    }
 
-    default:
-      break;
+      default:
+        break;
+    }
+  } catch {
+    // Remove the idempotency marker so Stripe can retry a transient failure.
+    await supabase.from("stripe_events").delete().eq("id", event.id);
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });

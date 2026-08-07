@@ -10,12 +10,17 @@ const MAX_REQUESTS = 10;
 
 const hits = new Map<string, number[]>();
 
-export function isRateLimited(key: string): boolean {
+export function isRateLimited(
+  key: string,
+  options: { windowMs?: number; maxRequests?: number } = {},
+): boolean {
   const now = Date.now();
-  const timestamps = (hits.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
+  const windowMs = options.windowMs ?? WINDOW_MS;
+  const maxRequests = options.maxRequests ?? MAX_REQUESTS;
+  const timestamps = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
 
   timestamps.push(now);
   hits.set(key, timestamps);
 
-  return timestamps.length > MAX_REQUESTS;
+  return timestamps.length > maxRequests;
 }

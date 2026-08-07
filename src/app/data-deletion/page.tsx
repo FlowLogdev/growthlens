@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { requestDataDeletion } from "./actions";
 
 export default function DataDeletionPage() {
@@ -10,10 +11,17 @@ export default function DataDeletionPage() {
     <div className="mx-auto max-w-md px-4 py-16">
       <h1 className="mb-4 text-3xl font-semibold">Delete your data</h1>
       <p className="mb-6 text-sm text-gray-600">
-        Enter the email address associated with your GrowthLens account. This permanently deletes
-        your account, connected platform tokens, and all synced metrics, posts, and insights. This
-        cannot be undone.
+        Sign in, then enter the email address associated with your GrowthLens account. We use your
+        signed-in session to verify ownership. This permanently deletes your account, connected
+        platform tokens, and all synced metrics, posts, and insights. This cannot be undone.
       </p>
+
+      <Link
+        href="/login?redirect_to=/data-deletion"
+        className="mb-6 inline-flex text-sm font-medium text-emerald-700 underline underline-offset-4"
+      >
+        Sign in to verify your account
+      </Link>
 
       <form action={formAction} className="space-y-4">
         <div>

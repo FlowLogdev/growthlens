@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAccountLimit } from "@/lib/plans";
 import { encryptToken } from "@/lib/encryption";
 import { verifyOAuthState } from "@/lib/oauth-state";
 import { isRateLimited } from "@/lib/rate-limit";
@@ -37,37 +38,77 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient();
     const expiresAt = new Date(Date.now() + longLived.expires_in * 1000).toISOString();
 
-    for (const page of pages) {
+    const [{ data: customer }, { data: existingAccounts }] = await Promise.all([
+      supabase
+        .from("customers")
+        .select("plan_tier")
+        .eq("id", customerId)
+        .single(),
+      supabase
+        .from("platform_accounts")
+        .select("platform, account_id")
+        .eq("customer_id", customerId),
+    ]);
+
+    if (!customer) {
+      return NextResponse.redirect(`${siteUrl}/dashboard/connect?error=Customer account not found`);
+    }
+
+    const candidates = pages.flatMap((page) => [
+      {
+        platform: "facebook" as const,
+        account_id: page.id,
+        account_name: page.name,
+        access_token: page.access_token,
+      },
+      ...(page.instagram_business_account
+        ? [
+            {
+              platform: "instagram" as const,
+              account_id: page.instagram_business_account.id,
+              account_name: page.name,
+              access_token: page.access_token,
+            },
+          ]
+        : []),
+    ]);
+    const existingKeys = new Set(
+      (existingAccounts ?? []).map((account) => `${account.platform}:${account.account_id}`),
+    );
+    let remaining = Math.max(0, getAccountLimit(customer.plan_tier) - existingKeys.size);
+    let skipped = 0;
+
+    for (const candidate of candidates) {
+      const key = `${candidate.platform}:${candidate.account_id}`;
+      const alreadyConnected = existingKeys.has(key);
+
+      if (!alreadyConnected && remaining === 0) {
+        skipped++;
+        continue;
+      }
+
       await supabase.from("platform_accounts").upsert(
         {
           customer_id: customerId,
-          platform: "facebook",
-          account_id: page.id,
-          account_name: page.name,
-          access_token: encryptToken(page.access_token),
+          platform: candidate.platform,
+          account_id: candidate.account_id,
+          account_name: candidate.account_name,
+          access_token: encryptToken(candidate.access_token),
           token_expires_at: expiresAt,
           status: "active",
         },
         { onConflict: "customer_id,platform,account_id" },
       );
 
-      if (page.instagram_business_account) {
-        await supabase.from("platform_accounts").upsert(
-          {
-            customer_id: customerId,
-            platform: "instagram",
-            account_id: page.instagram_business_account.id,
-            account_name: page.name,
-            access_token: encryptToken(page.access_token),
-            token_expires_at: expiresAt,
-            status: "active",
-          },
-          { onConflict: "customer_id,platform,account_id" },
-        );
+      if (!alreadyConnected) {
+        existingKeys.add(key);
+        remaining--;
       }
     }
 
-    return NextResponse.redirect(`${siteUrl}/dashboard/connect?connected=meta`);
+    return NextResponse.redirect(
+      `${siteUrl}/dashboard/connect?connected=meta${skipped ? "&limit=1" : ""}`,
+    );
   } catch (err) {
     return NextResponse.redirect(
       `${siteUrl}/dashboard/connect?error=${encodeURIComponent((err as Error).message)}`,

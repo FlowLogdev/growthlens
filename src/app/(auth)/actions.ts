@@ -1,70 +1,103 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { z } from "zod";
+import { isPlanTier } from "@/lib/plans";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+function safeRedirect(value: FormDataEntryValue | null, fallback = "/dashboard") {
+  const path = typeof value === "string" ? value : "";
+  return path.startsWith("/") && !path.startsWith("//") ? path : fallback;
+}
+
+const signupSchema = z.object({
+  businessName: z.string().trim().max(120),
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(8).max(128),
+});
+
 export async function signUp(formData: FormData) {
-  const email = String(formData.get("email"));
-  const password = String(formData.get("password"));
-  const businessName = String(formData.get("business_name") ?? "");
+  const parsed = signupSchema.safeParse({
+    businessName: formData.get("business_name") ?? "",
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+  const requestedPlan = formData.get("plan");
+  const plan = isPlanTier(requestedPlan) ? requestedPlan : "starter";
+
+  if (!parsed.success) {
+    redirect(`/signup?plan=${plan}&error=${encodeURIComponent("Enter a valid email and a password with at least 8 characters.")}`);
+  }
 
   const supabase = await createClient();
-
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email: parsed.data.email,
+    password: parsed.data.password,
+  });
   if (error) {
-    redirect(`/signup?error=${encodeURIComponent(error.message)}`);
+    redirect(`/signup?plan=${plan}&error=${encodeURIComponent(error.message)}`);
   }
 
   const authUserId = data.user?.id;
   if (authUserId) {
-    // Provision the tenant row with the service-role client: when email
-    // confirmation is required, signUp() returns no session, so the caller
-    // isn't authenticated yet and the RLS policy on customers (auth_user_id
-    // = auth.uid()) would reject this insert under the normal user client.
-    // subscription_status defaults to 'trialing' in the schema, so this
-    // customer can use the dashboard immediately and pick a plan (Stripe
-    // Checkout) at any point before the trial ends.
     const adminSupabase = createAdminClient();
     const { error: insertError } = await adminSupabase.from("customers").insert({
       auth_user_id: authUserId,
-      email,
-      business_name: businessName || null,
+      email: parsed.data.email,
+      business_name: parsed.data.businessName || null,
+      plan_tier: plan,
     });
 
     if (insertError) {
-      redirect(`/signup?error=${encodeURIComponent(insertError.message)}`);
+      redirect(`/signup?plan=${plan}&error=${encodeURIComponent(insertError.message)}`);
     }
   }
 
-  redirect("/dashboard");
+  const destination = `/dashboard/billing?plan=${plan}&welcome=1`;
+  if (data.session) {
+    redirect(destination);
+  }
+
+  redirect(
+    `/login?message=${encodeURIComponent("Check your email to confirm your account, then log in to choose your plan.")}&redirect_to=${encodeURIComponent(destination)}`,
+  );
 }
 
 export async function signIn(formData: FormData) {
-  const email = String(formData.get("email"));
-  const password = String(formData.get("password"));
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const destination = safeRedirect(formData.get("redirect_to"));
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    redirect(
+      `/login?error=${encodeURIComponent(error.message)}&redirect_to=${encodeURIComponent(destination)}`,
+    );
   }
 
-  redirect("/dashboard");
+  redirect(destination);
 }
 
-export async function signInWithGoogle() {
+export async function signInWithGoogle(formData: FormData) {
+  const destination = safeRedirect(formData.get("redirect_to"));
   const supabase = await createClient();
+  const callbackUrl = new URL("/auth/callback", process.env.NEXT_PUBLIC_SITE_URL);
+  callbackUrl.searchParams.set("next", destination);
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+      redirectTo: callbackUrl.toString(),
     },
   });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    redirect(
+      `/login?error=${encodeURIComponent(error.message)}&redirect_to=${encodeURIComponent(destination)}`,
+    );
   }
 
   if (data.url) {
