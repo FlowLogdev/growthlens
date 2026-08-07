@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { hasProductAccess } from "@/lib/entitlements";
 import { createClient } from "@/lib/supabase/server";
 import { buildMetaAuthUrl } from "@/lib/integrations/meta";
 import { createOAuthState } from "@/lib/oauth-state";
@@ -15,12 +16,18 @@ export async function GET() {
 
   const { data: customer } = await supabase
     .from("customers")
-    .select("id")
+    .select("id, subscription_status, trial_ends_at")
     .eq("auth_user_id", user.id)
     .single();
 
   if (!customer) {
     return NextResponse.json({ error: "Customer record not found" }, { status: 404 });
+  }
+
+  if (!hasProductAccess(customer)) {
+    return NextResponse.redirect(
+      new URL("/dashboard/billing?error=subscription_required", process.env.NEXT_PUBLIC_SITE_URL),
+    );
   }
 
   const state = createOAuthState(customer.id);

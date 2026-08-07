@@ -2,9 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isAuthorizedCronRequest } from "@/lib/cron-auth";
+import { hasOnDemandInsights, hasProductAccess } from "@/lib/entitlements";
 import { engagementRate, generateInsights, type PostSummary } from "@/lib/anthropic/analyze";
 
 const PERIOD_DAYS = 30;
+const ON_DEMAND_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 
 // Runs per customer, per account (spec Section 10), invoked either by the
 // weekly cron fan-out or on-demand from the dashboard's "Refresh insights"
@@ -35,6 +37,65 @@ export async function POST(request: NextRequest) {
 
   if (accountError || !account) {
     return NextResponse.json({ error: "Account not found" }, { status: 404 });
+  }
+
+  if (!isCron) {
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("plan_tier, subscription_status, trial_ends_at")
+      .eq("id", account.customer_id)
+      .single();
+
+    if (!customer || !hasProductAccess(customer)) {
+      return NextResponse.json(
+        { error: "Your trial or subscription is not active." },
+        { status: 402 },
+      );
+    }
+
+    if (!hasOnDemandInsights(customer.plan_tier)) {
+      return NextResponse.json(
+        { error: "On-demand insight refreshes are available on Pro." },
+        { status: 403 },
+      );
+    }
+
+    const since24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count: recentCustomerInsightCount } = await supabase
+      .from("ai_insights")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", account.customer_id)
+      .gte("generated_at", since24Hours);
+
+    if ((recentCustomerInsightCount ?? 0) >= 4) {
+      return NextResponse.json(
+        { error: "Your account has reached the 24-hour insight refresh limit." },
+        { status: 429 },
+      );
+    }
+
+    const { data: latestInsight } = await supabase
+      .from("ai_insights")
+      .select("generated_at")
+      .eq("account_id", account.id)
+      .order("generated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const generatedAt = latestInsight?.generated_at
+      ? new Date(latestInsight.generated_at).getTime()
+      : 0;
+    const elapsed = Date.now() - generatedAt;
+
+    if (generatedAt && elapsed < ON_DEMAND_COOLDOWN_MS) {
+      return NextResponse.json(
+        {
+          error: "Insights were refreshed recently. Try again after the 6-hour refresh window.",
+          retry_after_seconds: Math.ceil((ON_DEMAND_COOLDOWN_MS - elapsed) / 1000),
+        },
+        { status: 429 },
+      );
+    }
   }
 
   const periodStart = new Date(Date.now() - PERIOD_DAYS * 24 * 60 * 60 * 1000)

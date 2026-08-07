@@ -1,80 +1,73 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { signUp, signInWithGoogle } from "../actions";
+import { isPlanTier, PLANS } from "@/lib/plans";
+
+export const metadata: Metadata = {
+  title: "Create account",
+};
 
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; plan?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, plan: requestedPlan } = await searchParams;
+  const plan = isPlanTier(requestedPlan) ? requestedPlan : "starter";
+  const destination = `/dashboard/billing?plan=${plan}&welcome=1`;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-white">Create your account</h1>
+    <div>
+      <p className="marketing-eyebrow">14-day GrowthLens trial</p>
+      <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em]">Create your account</h1>
+      <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+        You selected {PLANS[plan].name} at ${PLANS[plan].price} per month. No card is required today.
+      </p>
 
       {error && (
-        <p className="rounded bg-red-950 p-3 text-sm text-red-300">{error}</p>
+        <p className="mt-6 rounded-2xl border border-[#d85a5a]/30 bg-[#d85a5a]/10 p-4 text-sm text-[#a73535]">
+          {error}
+        </p>
       )}
 
-      <form action={signUp} className="space-y-4">
+      <form action={signUp} className="mt-8 space-y-5">
+        <input type="hidden" name="plan" value={plan} />
         <div>
-          <label htmlFor="business_name" className="block text-sm font-medium text-white">
-            Business name
-          </label>
-          <input
-            id="business_name"
-            name="business_name"
-            type="text"
-            className="mt-1 w-full rounded border border-gray-600 bg-black px-3 py-2 text-white placeholder-gray-500 focus:border-white focus:outline-none"
-          />
+          <label htmlFor="business_name" className="form-label">Business name</label>
+          <input id="business_name" name="business_name" type="text" maxLength={120} autoComplete="organization" className="form-control" placeholder="Your brand or business" />
         </div>
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-white">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            className="mt-1 w-full rounded border border-gray-600 bg-black px-3 py-2 text-white placeholder-gray-500 focus:border-white focus:outline-none"
-          />
+          <label htmlFor="email" className="form-label">Email</label>
+          <input id="email" name="email" type="email" required autoComplete="email" className="form-control" placeholder="you@company.com" />
         </div>
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-white">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            minLength={8}
-            required
-            className="mt-1 w-full rounded border border-gray-600 bg-black px-3 py-2 text-white placeholder-gray-500 focus:border-white focus:outline-none"
-          />
+          <label htmlFor="password" className="form-label">Password</label>
+          <input id="password" name="password" type="password" minLength={8} maxLength={128} required autoComplete="new-password" className="form-control" />
+          <p className="mt-2 text-xs text-[var(--subtle)]">Use at least 8 characters.</p>
         </div>
-        <button
-          type="submit"
-          className="w-full rounded bg-white px-3 py-2 text-black hover:bg-gray-200"
-        >
-          Start free trial
+        <button type="submit" className="marketing-button marketing-button-primary marketing-button-large w-full">
+          Create account
         </button>
       </form>
 
+      <div className="my-6 flex items-center gap-3 text-xs text-[var(--subtle)]">
+        <span className="h-px flex-1 bg-[var(--line)]" />
+        or
+        <span className="h-px flex-1 bg-[var(--line)]" />
+      </div>
+
       <form action={signInWithGoogle}>
-        <button
-          type="submit"
-          className="w-full rounded border border-gray-600 px-3 py-2 text-white hover:bg-gray-900"
-        >
+        <input type="hidden" name="redirect_to" value={destination} />
+        <button type="submit" className="marketing-button marketing-button-secondary marketing-button-large w-full">
           Continue with Google
         </button>
       </form>
 
-      <p className="text-center text-sm text-gray-400">
-        Already have an account?{" "}
-        <Link href="/login" className="text-white underline">
-          Log in
-        </Link>
+      <p className="mt-7 text-center text-sm text-[var(--muted)]">
+        Already have an account? <Link href={`/login?redirect_to=${encodeURIComponent(destination)}`} className="font-semibold text-[var(--ink)] underline decoration-[#58cc70] decoration-2 underline-offset-4">Log in</Link>
+      </p>
+      <p className="mt-5 text-center text-xs leading-5 text-[var(--subtle)]">
+        By creating an account, you agree to the <Link href="/terms" className="underline">Terms</Link> and <Link href="/privacy" className="underline">Privacy Policy</Link>.
       </p>
     </div>
   );

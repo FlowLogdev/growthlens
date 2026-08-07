@@ -1,5 +1,6 @@
 import "server-only";
 import Stripe from "stripe";
+import type { PlanTier } from "@/lib/plans";
 
 let client: Stripe | undefined;
 
@@ -12,7 +13,7 @@ export function getStripeClient(): Stripe {
   return client;
 }
 
-export const PRICE_ID_BY_TIER: Record<string, string> = {
+export const PRICE_ID_BY_TIER: Record<PlanTier, string | undefined> = {
   starter: process.env.STRIPE_PRICE_ID_STARTER!,
   pro: process.env.STRIPE_PRICE_ID_PRO!,
 };

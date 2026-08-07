@@ -1,11 +1,11 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
-// Public, unauthenticated data-deletion mechanism required by Meta App
-// Review (spec Section 13). Looks up the customer by the email they submit
-// and purges every tenant row across all data tables, then logs the request
-// for audit purposes regardless of whether a matching customer was found.
+// Meta requires a public data-deletion instructions URL, but the destructive
+// operation itself must be authenticated. The submitted email is only used as
+// a confirmation value; the account is resolved from the signed-in user.
 export async function requestDataDeletion(
   _prevState: { message: string } | null,
   formData: FormData,
@@ -15,26 +15,34 @@ export async function requestDataDeletion(
     return { message: "Please enter the email associated with your account." };
   }
 
+  const sessionClient = await createClient();
+  const {
+    data: { user },
+  } = await sessionClient.auth.getUser();
+
+  if (!user) {
+    return { message: "Please sign in first so we can verify that this is your account." };
+  }
+
   const supabase = createAdminClient();
 
-  const { data: customer } = await supabase
+  const { data: customer, error: customerError } = await supabase
     .from("customers")
-    .select("id, auth_user_id")
-    .eq("email", email)
+    .select("id, auth_user_id, email")
+    .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  if (!customer) {
-    await supabase
-      .from("data_deletion_requests")
-      .insert({ email, status: "not_found" });
-    return {
-      message: "If an account exists for that email, its data has been queued for deletion.",
-    };
+  if (customerError || !customer) {
+    return { message: "We could not find a GrowthLens account for your signed-in user." };
+  }
+
+  if (customer.email.toLowerCase() !== email) {
+    return { message: "That email does not match the account you are signed in to." };
   }
 
   const customerId = customer.id;
 
-  await Promise.all([
+  const deletionResults = await Promise.all([
     supabase.from("link_clicks").delete().eq("customer_id", customerId),
     supabase.from("ai_insights").delete().eq("customer_id", customerId),
     supabase.from("post_performance").delete().eq("customer_id", customerId),
@@ -42,10 +50,26 @@ export async function requestDataDeletion(
     supabase.from("platform_accounts").delete().eq("customer_id", customerId),
   ]);
 
-  await supabase.from("customers").delete().eq("id", customerId);
+  if (deletionResults.some((result) => result.error)) {
+    return { message: "We could not complete the deletion. Please contact support@flowlog.dev." };
+  }
+
+  const { error: deleteCustomerError } = await supabase
+    .from("customers")
+    .delete()
+    .eq("id", customerId);
+
+  if (deleteCustomerError) {
+    return { message: "We could not complete the deletion. Please contact support@flowlog.dev." };
+  }
 
   if (customer.auth_user_id) {
-    await supabase.auth.admin.deleteUser(customer.auth_user_id);
+    const { error: deleteUserError } = await supabase.auth.admin.deleteUser(customer.auth_user_id);
+    if (deleteUserError) {
+      return {
+        message: "Your GrowthLens data was deleted, but the login could not be removed. Please contact support@flowlog.dev.",
+      };
+    }
   }
 
   await supabase
