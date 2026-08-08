@@ -20,6 +20,20 @@ export const providerResultSchema = z.object({
   sources: z.array(sourceSchema).max(12).default([]),
 });
 
+const rawProviderResultSchema = z.object({
+  summary: z.string(),
+  hashtags: z.array(z.object({
+    tag: z.string(),
+    category: z.string(),
+    reason: z.string(),
+  })).default([]),
+  content_angles: z.array(z.string()).default([]),
+  sources: z.array(z.object({
+    title: z.string(),
+    url: z.string(),
+  })).default([]),
+});
+
 export type HashtagResearch = z.infer<typeof providerResultSchema> & {
   generated_at: string;
 };
@@ -146,7 +160,7 @@ function extractJson(text: string) {
   const first = trimmed.indexOf("{");
   const last = trimmed.lastIndexOf("}");
   if (first < 0 || last <= first) throw new Error("Research provider did not return JSON");
-  return providerResultSchema.parse(JSON.parse(trimmed.slice(first, last + 1)));
+  return normalizeProviderResult(JSON.parse(trimmed.slice(first, last + 1)));
 }
 
 async function researchWithSecondaryAI(input: ResearchInput) {
@@ -165,7 +179,7 @@ async function researchWithSecondaryAI(input: ResearchInput) {
     (block) => block.type === "tool_use" && block.name === recordResearchTool.name,
   );
   if (structured?.type === "tool_use") {
-    return providerResultSchema.parse(structured.input);
+    return normalizeProviderResult(structured.input);
   }
 
   const text = message.content
@@ -227,6 +241,52 @@ function normalizeTag(input: string) {
   const cleaned = input.trim().replace(/\s+/g, "").replace(/[^#\p{L}\p{N}_]/gu, "");
   if (!cleaned) return "";
   return cleaned.startsWith("#") ? cleaned : `#${cleaned}`;
+}
+
+function truncateText(input: string, maxLength: number) {
+  const normalized = input.trim().replace(/\s+/g, " ");
+  if (normalized.length <= maxLength) return normalized;
+
+  const available = maxLength - 1;
+  const candidate = normalized.slice(0, available);
+  const lastSpace = candidate.lastIndexOf(" ");
+  const boundary = lastSpace >= Math.floor(maxLength * 0.6) ? lastSpace : available;
+  return `${candidate.slice(0, boundary).trimEnd()}…`;
+}
+
+function normalizeProviderResult(input: unknown): z.infer<typeof providerResultSchema> {
+  const raw = rawProviderResultSchema.parse(input);
+
+  const hashtags = raw.hashtags
+    .map((item) => hashtagSchema.safeParse({
+      tag: normalizeTag(item.tag).slice(0, 80),
+      category: item.category,
+      reason: truncateText(item.reason, 240),
+    }))
+    .filter((item): item is { success: true; data: z.infer<typeof hashtagSchema> } => item.success)
+    .map((item) => item.data)
+    .slice(0, 30);
+
+  const contentAngles = [...new Set(raw.content_angles
+    .map((angle) => truncateText(angle, 180))
+    .filter((angle) => angle.length >= 4))]
+    .slice(0, 8);
+
+  const sources = raw.sources
+    .map((source) => sourceSchema.safeParse({
+      title: truncateText(source.title, 180),
+      url: source.url.trim(),
+    }))
+    .filter((source): source is { success: true; data: z.infer<typeof sourceSchema> } => source.success)
+    .map((source) => source.data)
+    .slice(0, 12);
+
+  return providerResultSchema.parse({
+    summary: truncateText(raw.summary, 900),
+    hashtags,
+    content_angles: contentAngles,
+    sources,
+  });
 }
 
 export async function researchHashtags(input: ResearchInput): Promise<HashtagResearch> {
