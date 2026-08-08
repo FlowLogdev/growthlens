@@ -128,11 +128,6 @@ export function ContactForm({ defaultSubject = "" }: { defaultSubject?: string }
           <p className="mt-2 text-xs text-[var(--subtle)]">Do not include passwords, access tokens, or payment card details.</p>
         </div>
 
-        <div className="absolute -left-[10000px] top-auto size-px overflow-hidden" aria-hidden="true">
-          <label htmlFor="company_website">Company website</label>
-          <input id="company_website" name="company_website" type="text" tabIndex={-1} autoComplete="off" />
-        </div>
-
         <button
           type="submit"
           disabled={pending}

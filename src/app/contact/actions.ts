@@ -22,7 +22,6 @@ const ticketSchema = z.object({
     .trim()
     .min(20, "Please add a little more detail so we can help.")
     .max(5000, "Keep the description under 5,000 characters."),
-  company_website: z.string().max(0).optional(),
 });
 
 type TicketField = "name" | "email" | "subject" | "description";
@@ -73,7 +72,6 @@ export async function createSupportTicket(
   };
   const parsed = ticketSchema.safeParse({
     ...rawValues,
-    company_website: readFormText(formData, "company_website"),
   });
 
   if (!parsed.success) {
@@ -97,10 +95,6 @@ export async function createSupportTicket(
       fieldErrors: visibleErrors,
       values: preservedValues,
     };
-  }
-
-  if (parsed.data.company_website) {
-    return { status: "success", message: "Your request has been received." };
   }
 
   const validValues: TicketValues = {
