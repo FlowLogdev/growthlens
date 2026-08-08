@@ -1,12 +1,13 @@
 import { requireCurrentCustomer } from "@/lib/current-customer";
 import { getAccountLimit } from "@/lib/plans";
+import { syncTikTokAccount } from "./actions";
 
 export default async function ConnectPage({
   searchParams,
 }: {
-  searchParams: Promise<{ connected?: string; error?: string; limit?: string }>;
+  searchParams: Promise<{ connected?: string; error?: string; limit?: string; sync?: string }>;
 }) {
-  const { connected, error, limit } = await searchParams;
+  const { connected, error, limit, sync } = await searchParams;
   const { supabase, customer } = await requireCurrentCustomer();
 
   const { data: accounts } = await supabase
@@ -23,6 +24,16 @@ export default async function ConnectPage({
       {connected && (
         <p className="rounded bg-green-50 p-3 text-sm text-green-700">
           Connected {connected} successfully.
+        </p>
+      )}
+      {sync === "complete" && (
+        <p className="rounded bg-green-50 p-3 text-sm text-green-700">
+          TikTok data synced successfully. Your latest profile and video metrics are now available.
+        </p>
+      )}
+      {sync === "failed" && (
+        <p className="rounded bg-amber-50 p-3 text-sm text-amber-800">
+          TikTok is connected, but its data sync did not finish. GrowthLens will retry automatically.
         </p>
       )}
       {error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
@@ -73,8 +84,17 @@ export default async function ConnectPage({
           ) : (
             <ul className="space-y-1 text-sm">
               {byPlatform("tiktok").map((a) => (
-                <li key={a.id}>
-                  {a.account_name} ({a.status})
+                <li key={a.id} className="flex items-center justify-between gap-3">
+                  <span>{a.account_name} ({a.status})</span>
+                  <form action={syncTikTokAccount}>
+                    <input type="hidden" name="account_id" value={a.id} />
+                    <button
+                      type="submit"
+                      className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium hover:bg-gray-50"
+                    >
+                      Sync data now
+                    </button>
+                  </form>
                 </li>
               ))}
             </ul>

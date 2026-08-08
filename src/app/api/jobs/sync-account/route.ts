@@ -8,7 +8,7 @@ import {
   getMediaInsights,
   getPageInsights,
 } from "@/lib/integrations/meta";
-import { listTikTokVideos } from "@/lib/integrations/tiktok";
+import { syncTikTokAccountData } from "@/lib/integrations/sync-tiktok";
 
 // One invocation per connected account (spec Section 8). Keeping this
 // isolated per-account means one customer's expired token or rate-limited
@@ -100,24 +100,11 @@ export async function POST(request: NextRequest) {
         { onConflict: "account_id,date" },
       );
     } else if (account.platform === "tiktok") {
-      const videos = await listTikTokVideos(accessToken);
-      for (const video of videos?.data?.videos ?? []) {
-        await supabase.from("post_performance").upsert(
-          {
-            customer_id: account.customer_id,
-            account_id: account.id,
-            platform_post_id: video.id,
-            posted_at: new Date(video.create_time * 1000).toISOString(),
-            content_type: "video",
-            caption: video.title,
-            likes: video.like_count,
-            comments: video.comment_count,
-            shares: video.share_count,
-            impressions: video.view_count,
-          },
-          { onConflict: "account_id,platform_post_id" },
-        );
-      }
+      await syncTikTokAccountData({
+        accountId: account.id,
+        customerId: account.customer_id,
+        accessToken,
+      });
     }
 
     return NextResponse.json({ synced: true, account_id: accountId });
