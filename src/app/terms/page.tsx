@@ -67,7 +67,7 @@ export default function TermsOfServicePage() {
             </p>
             <p>
               GrowthLens is an independent service. It is not sponsored, endorsed, or operated by
-              Meta, Facebook, Instagram, TikTok, Stripe, OpenAI, Anthropic, Supabase, Vercel, or Resend.
+              Meta, Facebook, Instagram, TikTok, Stripe, Supabase, Vercel, Resend, or our AI processing providers.
             </p>
           </section>
 
@@ -200,8 +200,8 @@ export default function TermsOfServicePage() {
               9. Third-party services
             </h2>
             <p>
-              The Service depends on third parties, including Meta, TikTok, Stripe, OpenAI, Anthropic,
-              Supabase, Vercel, and Resend. Their products are governed by their own terms and
+              The Service depends on third parties, including Meta, TikTok, Stripe, Supabase,
+              Vercel, Resend, and AI processing providers. Their products are governed by their own terms and
               policies. GrowthLens does not control and is not responsible for third-party systems,
               content, decisions, outages, or changes.
             </p>
