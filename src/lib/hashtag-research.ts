@@ -67,11 +67,11 @@ function extractJson(text: string) {
 async function researchWithClaude(input: ResearchInput) {
   const message = await getAnthropicClient().messages.create({
     model: CLAUDE_MODEL,
-    max_tokens: 2200,
+    max_tokens: 1600,
     system: "You are a social research analyst. Search before answering. Favor relevance and evidence over raw hashtag popularity. Return only the requested JSON.",
     messages: [{ role: "user", content: promptFor(input) }],
-    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
-  });
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }],
+  }, { signal: AbortSignal.timeout(14_000) });
   const text = message.content
     .filter((block) => block.type === "text")
     .map((block) => block.type === "text" ? block.text : "")
@@ -95,13 +95,13 @@ async function researchWithOpenAI(input: ResearchInput) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_RESEARCH_MODEL || "gpt-5.6-luna",
+      model: process.env.OPENAI_RESEARCH_MODEL || "gpt-5-mini",
       reasoning: { effort: "low" },
-      tools: [{ type: "web_search", search_context_size: "medium" }],
+      tools: [{ type: "web_search", search_context_size: "low" }],
       input: promptFor(input),
-      max_output_tokens: 2200,
+      max_output_tokens: 1800,
     }),
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(18_000),
   });
   const payload = await response.json() as OpenAIResponse;
   if (!response.ok) throw new Error(payload.error?.message || `OpenAI research failed with ${response.status}`);
@@ -122,8 +122,8 @@ function normalizeTag(input: string) {
 
 export async function researchHashtags(input: ResearchInput): Promise<HashtagResearch> {
   const jobs: Array<{ provider: string; run: () => Promise<z.infer<typeof providerResultSchema>> }> = [];
+  if (process.env.OPENAI_API_KEY) jobs.push({ provider: "ChatGPT", run: () => researchWithOpenAI(input) });
   if (process.env.ANTHROPIC_API_KEY) jobs.push({ provider: "Claude", run: () => researchWithClaude(input) });
-  if (process.env.OPENAI_API_KEY) jobs.push({ provider: "OpenAI", run: () => researchWithOpenAI(input) });
   if (!jobs.length) throw new Error("AI_RESEARCH_NOT_CONFIGURED");
 
   const settled = await Promise.allSettled(jobs.map((job) => job.run()));

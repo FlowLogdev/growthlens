@@ -13,8 +13,8 @@ const linkClassName = "font-medium text-gray-950 underline underline-offset-4 ho
 
 export default function TermsOfServicePage() {
   return (
-    <main className="min-h-screen bg-white text-gray-700">
-      <div className="mx-auto max-w-3xl px-5 py-12 sm:px-8 sm:py-16">
+    <main className="legal-shell min-h-[100dvh] text-white/72">
+      <div className="legal-content relative mx-auto max-w-4xl px-5 py-12 sm:px-10 sm:py-16">
         <Link href="/" className="text-sm font-semibold text-gray-950 hover:text-gray-600">
           GrowthLens
         </Link>
@@ -27,7 +27,7 @@ export default function TermsOfServicePage() {
             Terms of Service
           </h1>
           <p className="mt-4 text-sm text-gray-500">
-            Effective and last updated: <time dateTime="2026-08-07">August 7, 2026</time>
+            Effective and last updated: <time dateTime="2026-08-08">August 8, 2026</time>
           </p>
         </header>
 
@@ -67,7 +67,7 @@ export default function TermsOfServicePage() {
             </p>
             <p>
               GrowthLens is an independent service. It is not sponsored, endorsed, or operated by
-              Meta, Facebook, Instagram, TikTok, Stripe, Anthropic, Supabase, Vercel, or Resend.
+              Meta, Facebook, Instagram, TikTok, Stripe, OpenAI, Anthropic, Supabase, Vercel, or Resend.
             </p>
           </section>
 
@@ -200,7 +200,7 @@ export default function TermsOfServicePage() {
               9. Third-party services
             </h2>
             <p>
-              The Service depends on third parties, including Meta, TikTok, Stripe, Anthropic,
+              The Service depends on third parties, including Meta, TikTok, Stripe, OpenAI, Anthropic,
               Supabase, Vercel, and Resend. Their products are governed by their own terms and
               policies. GrowthLens does not control and is not responsible for third-party systems,
               content, decisions, outages, or changes.

@@ -237,6 +237,58 @@ select {
   padding: 0.75rem;
 }
 
+.legal-shell {
+  background-color: #080d0a;
+  background-image:
+    linear-gradient(118deg, rgba(5, 9, 7, 0.98), rgba(9, 15, 11, 0.88) 58%, rgba(6, 11, 8, 0.96)),
+    url("/brand/growthlens-hero.png");
+  background-position: center;
+  background-size: cover;
+  background-attachment: fixed;
+}
+
+.legal-content {
+  background: rgba(9, 14, 11, 0.78);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(22px);
+}
+
+.legal-shell :where(.text-gray-950, .text-gray-900, .text-gray-800) {
+  color: rgba(248, 250, 246, 0.96);
+}
+
+.legal-shell :where(.text-gray-700, .text-gray-600) {
+  color: rgba(235, 240, 232, 0.7);
+}
+
+.legal-shell :where(.text-gray-500, .text-gray-400) {
+  color: rgba(235, 240, 232, 0.46);
+}
+
+.legal-shell :where(.border-gray-300, .border-gray-200, .border-gray-100) {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.legal-shell :where(a) {
+  text-decoration-color: rgba(217, 255, 107, 0.5);
+}
+
+.legal-shell :where(a:hover) {
+  color: #d9ff6b;
+}
+
+@media (max-width: 767px) {
+  .legal-shell {
+    background-attachment: scroll;
+  }
+
+  .legal-content {
+    border-left: 0;
+    border-right: 0;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   .marketing-page {
     --page: #0f1310;

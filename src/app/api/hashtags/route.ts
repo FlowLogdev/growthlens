@@ -35,9 +35,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = (error as Error).message;
     if (message === "AI_RESEARCH_NOT_CONFIGURED") {
-      return NextResponse.json({ error: "Hashtag research needs ANTHROPIC_API_KEY or OPENAI_API_KEY in the server environment." }, { status: 503 });
+      return NextResponse.json({ error: "Hashtag research needs OPENAI_API_KEY or ANTHROPIC_API_KEY in the server environment." }, { status: 503 });
     }
     console.error("Hashtag research failed", message);
-    return NextResponse.json({ error: "The research providers could not complete this request. Try a more specific niche or try again later." }, { status: 502 });
+    return NextResponse.json({ error: "ChatGPT and Claude could not finish this search. Check the API keys and model access, or try a more specific niche." }, { status: 502 });
   }
 }
