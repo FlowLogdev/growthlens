@@ -1,9 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { detectLocale, LOCALE_COOKIE, normalizeLocale } from "@/lib/i18n";
 
 const PROTECTED_PREFIXES = ["/dashboard"];
 
 export async function proxy(request: NextRequest) {
+  const locale = normalizeLocale(request.cookies.get(LOCALE_COOKIE)?.value) ?? detectLocale(
+    request.headers.get("x-vercel-ip-country"),
+    request.headers.get("accept-language"),
+  );
+  if (!request.cookies.has(LOCALE_COOKIE)) request.cookies.set(LOCALE_COOKIE, locale);
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -36,9 +42,22 @@ export async function proxy(request: NextRequest) {
   if (isProtected && !user) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("redirect_to", request.nextUrl.pathname);
-    return NextResponse.redirect(redirectUrl);
+    const redirect = NextResponse.redirect(redirectUrl);
+    redirect.cookies.set(LOCALE_COOKIE, locale, {
+      path: "/",
+      maxAge: 31_536_000,
+      sameSite: "lax",
+      secure: true,
+    });
+    return redirect;
   }
 
+  response.cookies.set(LOCALE_COOKIE, locale, {
+    path: "/",
+    maxAge: 31_536_000,
+    sameSite: "lax",
+    secure: true,
+  });
   return response;
 }
 
