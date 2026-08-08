@@ -7,12 +7,31 @@ import "server-only";
 
 const API_BASE = "https://open.tiktokapis.com";
 
-export const TIKTOK_OAUTH_SCOPES = ["user.info.basic", "video.list", "video.insights"].join(",");
+export function getTikTokOAuthConfiguration() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+  const clientKey = process.env.TIKTOK_CLIENT_KEY?.trim();
+  const clientSecret = process.env.TIKTOK_CLIENT_SECRET?.trim();
+  const redirectUri = process.env.TIKTOK_REDIRECT_URI?.trim() ||
+    (siteUrl ? `${siteUrl}/api/oauth/tiktok/callback` : "");
+
+  return {
+    clientKey,
+    clientSecret,
+    redirectUri,
+    ready: Boolean(clientKey && clientSecret && redirectUri),
+  };
+}
+
+export const TIKTOK_OAUTH_SCOPES = ["user.info.basic", "user.info.stats", "video.list"].join(",");
 
 export function buildTikTokAuthUrl(state: string) {
+  const config = getTikTokOAuthConfiguration();
+  if (!config.ready) {
+    throw new Error("tiktok_not_configured");
+  }
   const url = new URL("https://www.tiktok.com/v2/auth/authorize/");
-  url.searchParams.set("client_key", process.env.TIKTOK_CLIENT_KEY!);
-  url.searchParams.set("redirect_uri", process.env.TIKTOK_REDIRECT_URI!);
+  url.searchParams.set("client_key", config.clientKey!);
+  url.searchParams.set("redirect_uri", config.redirectUri);
   url.searchParams.set("scope", TIKTOK_OAUTH_SCOPES);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("state", state);
@@ -29,15 +48,17 @@ interface TikTokTokenResponse {
 }
 
 export async function exchangeTikTokCode(code: string): Promise<TikTokTokenResponse> {
+  const config = getTikTokOAuthConfiguration();
+  if (!config.ready) throw new Error("tiktok_not_configured");
   const res = await fetch(`${API_BASE}/v2/oauth/token/`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_key: process.env.TIKTOK_CLIENT_KEY!,
-      client_secret: process.env.TIKTOK_CLIENT_SECRET!,
+      client_key: config.clientKey!,
+      client_secret: config.clientSecret!,
       code,
       grant_type: "authorization_code",
-      redirect_uri: process.env.TIKTOK_REDIRECT_URI!,
+      redirect_uri: config.redirectUri,
     }),
   });
 
@@ -48,12 +69,14 @@ export async function exchangeTikTokCode(code: string): Promise<TikTokTokenRespo
 }
 
 export async function refreshTikTokToken(refreshToken: string): Promise<TikTokTokenResponse> {
+  const config = getTikTokOAuthConfiguration();
+  if (!config.ready) throw new Error("tiktok_not_configured");
   const res = await fetch(`${API_BASE}/v2/oauth/token/`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_key: process.env.TIKTOK_CLIENT_KEY!,
-      client_secret: process.env.TIKTOK_CLIENT_SECRET!,
+      client_key: config.clientKey!,
+      client_secret: config.clientSecret!,
       grant_type: "refresh_token",
       refresh_token: refreshToken,
     }),
