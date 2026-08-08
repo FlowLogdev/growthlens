@@ -6,6 +6,21 @@ import "server-only";
 const GRAPH_VERSION = "v19.0";
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
+export function getMetaOAuthConfiguration() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+  const appId = process.env.META_APP_ID?.trim();
+  const appSecret = process.env.META_APP_SECRET?.trim();
+  const redirectUri = process.env.META_REDIRECT_URI?.trim() ||
+    (siteUrl ? `${siteUrl}/api/oauth/meta/callback` : "");
+
+  return {
+    appId,
+    appSecret,
+    redirectUri,
+    ready: Boolean(appId && appSecret && redirectUri),
+  };
+}
+
 export const META_OAUTH_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
@@ -14,19 +29,25 @@ export const META_OAUTH_SCOPES = [
 ].join(",");
 
 export function buildMetaAuthUrl(state: string) {
+  const config = getMetaOAuthConfiguration();
+  if (!config.ready) {
+    throw new Error("meta_not_configured");
+  }
   const url = new URL("https://www.facebook.com/v19.0/dialog/oauth");
-  url.searchParams.set("client_id", process.env.META_APP_ID!);
-  url.searchParams.set("redirect_uri", process.env.META_REDIRECT_URI!);
+  url.searchParams.set("client_id", config.appId!);
+  url.searchParams.set("redirect_uri", config.redirectUri);
   url.searchParams.set("scope", META_OAUTH_SCOPES);
   url.searchParams.set("state", state);
   return url.toString();
 }
 
 export async function exchangeMetaCode(code: string) {
+  const config = getMetaOAuthConfiguration();
+  if (!config.ready) throw new Error("meta_not_configured");
   const url = new URL(`${GRAPH_BASE}/oauth/access_token`);
-  url.searchParams.set("client_id", process.env.META_APP_ID!);
-  url.searchParams.set("client_secret", process.env.META_APP_SECRET!);
-  url.searchParams.set("redirect_uri", process.env.META_REDIRECT_URI!);
+  url.searchParams.set("client_id", config.appId!);
+  url.searchParams.set("client_secret", config.appSecret!);
+  url.searchParams.set("redirect_uri", config.redirectUri);
   url.searchParams.set("code", code);
 
   const res = await fetch(url, { method: "GET" });
@@ -39,10 +60,12 @@ export async function exchangeMetaCode(code: string) {
 // Short-lived user tokens (~1-2h) must be exchanged for a long-lived token
 // (~60 days) before being stored — otherwise the sync job breaks within hours.
 export async function exchangeForLongLivedToken(shortLivedToken: string) {
+  const config = getMetaOAuthConfiguration();
+  if (!config.ready) throw new Error("meta_not_configured");
   const url = new URL(`${GRAPH_BASE}/oauth/access_token`);
   url.searchParams.set("grant_type", "fb_exchange_token");
-  url.searchParams.set("client_id", process.env.META_APP_ID!);
-  url.searchParams.set("client_secret", process.env.META_APP_SECRET!);
+  url.searchParams.set("client_id", config.appId!);
+  url.searchParams.set("client_secret", config.appSecret!);
   url.searchParams.set("fb_exchange_token", shortLivedToken);
 
   const res = await fetch(url, { method: "GET" });

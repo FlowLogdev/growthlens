@@ -50,19 +50,19 @@ export function CheckoutButtons({ initialTier }: { initialTier?: PlanTier }) {
               className={`rounded-xl border p-4 text-left transition-colors disabled:opacity-50 ${
                 recommended
                   ? "border-[#58cc70] bg-[#58cc70]/10"
-                  : "border-gray-200 hover:border-gray-400"
+                  : "border-white/12 bg-white/[0.035] hover:border-[#d9ff6b]/35"
               }`}
             >
-              <span className="block text-sm font-semibold">{plan.name}</span>
-              <span className="mt-1 block text-sm text-gray-500">${plan.price} per month</span>
-              <span className="mt-3 block text-xs font-medium text-gray-700">
+              <span className="block text-sm font-semibold text-white">{plan.name}</span>
+              <span className="mt-1 block text-sm text-white/46">${plan.price} per month</span>
+              <span className="mt-3 block text-xs font-medium text-[#d9ff6b]">
                 {loading === tier ? "Opening secure checkout..." : `Choose ${plan.name}`}
               </span>
             </button>
           );
         })}
       </div>
-      {error && <p aria-live="polite" className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p aria-live="polite" className="mt-3 text-sm text-[#ff9e8b]">{error}</p>}
     </div>
   );
 }
@@ -98,11 +98,11 @@ export function ManageBillingButton() {
         type="button"
         disabled={loading}
         onClick={openPortal}
-        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+        className="min-h-11 rounded-full border border-[#d9ff6b]/35 px-5 py-2 text-sm font-semibold text-[#d9ff6b] hover:bg-[#d9ff6b]/10 disabled:opacity-50"
       >
         {loading ? "Opening billing portal..." : "Manage billing"}
       </button>
-      {error && <p aria-live="polite" className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p aria-live="polite" className="mt-3 text-sm text-[#ff9e8b]">{error}</p>}
     </div>
   );
 }

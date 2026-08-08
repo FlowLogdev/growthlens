@@ -163,6 +163,80 @@ select {
   outline: none;
 }
 
+.dashboard-shell {
+  --ink: #f2f4ef;
+  --muted: #b1b8b2;
+  --subtle: #7e8780;
+  --line: rgb(242 244 239 / 0.11);
+  --line-strong: rgb(242 244 239 / 0.19);
+  color-scheme: dark;
+}
+
+.dashboard-shell :where(.text-gray-950, .text-gray-900, .text-gray-800, .text-gray-700) {
+  color: rgb(242 244 239 / 0.92);
+}
+
+.dashboard-shell :where(.text-gray-600, .text-gray-500, .text-gray-400) {
+  color: rgb(242 244 239 / 0.5);
+}
+
+.dashboard-shell :where(.border-gray-300, .border-gray-200, .border-gray-100) {
+  border-color: rgb(242 244 239 / 0.12);
+}
+
+.dashboard-shell :where(.bg-white) {
+  background-color: rgb(255 255 255 / 0.055);
+}
+
+.dashboard-shell :where(.bg-black) {
+  background-color: #d9ff6b;
+  color: #172016;
+}
+
+.dashboard-shell :where(.bg-green-50) {
+  background-color: rgb(123 229 140 / 0.1);
+}
+
+.dashboard-shell :where(.border-green-200) {
+  border-color: rgb(123 229 140 / 0.28);
+}
+
+.dashboard-shell :where(.text-green-900, .text-green-700) {
+  color: #baf4c3;
+}
+
+.dashboard-shell :where(.bg-amber-50) {
+  background-color: rgb(217 255 107 / 0.1);
+}
+
+.dashboard-shell :where(.border-amber-200) {
+  border-color: rgb(217 255 107 / 0.25);
+}
+
+.dashboard-shell :where(.text-amber-900, .text-amber-800) {
+  color: #e8ffad;
+}
+
+.dashboard-shell :where(input, select, textarea) {
+  border-color: rgb(242 244 239 / 0.16);
+  background: rgb(13 18 15 / 0.74);
+  color: #f2f4ef;
+}
+
+.dashboard-shell :where(table) {
+  overflow: hidden;
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 0.045);
+}
+
+.dashboard-shell :where(th) {
+  color: rgb(242 244 239 / 0.45);
+}
+
+.dashboard-shell :where(td, th) {
+  padding: 0.75rem;
+}
+
 @media (prefers-color-scheme: dark) {
   .marketing-page {
     --page: #0f1310;
