@@ -85,8 +85,9 @@ export default function PrivacyPolicyPage() {
               <li>
                 <strong className="text-gray-950">Technical data:</strong> authentication
                 cookies, request and security logs, IP address and browser information recorded by
-                our infrastructure providers, and—when tracked links are used—link slug, source,
-                UTM parameters, click time, and user agent.
+                our infrastructure providers, advertising-pixel and registration-conversion events,
+                and—when tracked links are used—link slug, source, UTM parameters, click time, and
+                user agent.
               </li>
             </ul>
           </section>
@@ -138,6 +139,7 @@ export default function PrivacyPolicyPage() {
                 Analyze account metrics and post data to generate tailored growth recommendations.
               </li>
               <li>Process subscriptions, maintain billing records, and prevent duplicate events.</li>
+              <li>Measure whether advertising campaigns lead to completed registrations.</li>
               <li>Send requested service messages and weekly insight digests.</li>
               <li>Detect abuse, investigate errors, comply with law, and enforce our terms.</li>
             </ul>
@@ -178,6 +180,10 @@ export default function PrivacyPolicyPage() {
               <li>
                 <strong className="text-gray-950">Resend</strong> for transactional and weekly
                 insight emails.
+              </li>
+              <li>
+                <strong className="text-gray-950">OpenAI Ads</strong> for advertising attribution
+                and registration-conversion measurement.
               </li>
               <li>
                 <strong className="text-gray-950">Meta and TikTok</strong> when you authorize a
