@@ -4,7 +4,8 @@ import { getAccountLimit } from "@/lib/plans";
 import { encryptToken } from "@/lib/encryption";
 import { verifyOAuthState } from "@/lib/oauth-state";
 import { isRateLimited } from "@/lib/rate-limit";
-import { exchangeTikTokCode, getTikTokUserInfo } from "@/lib/integrations/tiktok";\nimport { syncTikTokAccountData } from "@/lib/integrations/sync-tiktok";
+import { exchangeTikTokCode, getTikTokUserInfo } from "@/lib/integrations/tiktok";
+import { syncTikTokAccountData } from "@/lib/integrations/sync-tiktok";
 
 export async function GET(request: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL!;
