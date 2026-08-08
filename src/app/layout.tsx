@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Script from "next/script";
+import { OpenAIAdsRegistrationEvent } from "@/components/openai-ads-registration-event";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -41,7 +43,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="flex min-h-full flex-col">{children}</body>
+      <Script id="openai-ads-pixel" strategy="beforeInteractive">
+        {`!function(w,d,s,u){if(w.oaiq)return;var q=function(){q.q.push(arguments)};q.q=[];w.oaiq=q;var j=d.createElement(s);j.async=1;j.src=u;var f=d.getElementsByTagName(s)[0];f.parentNode.insertBefore(j,f)}(window,document,"script","https://bzrcdn.openai.com/sdk/oaiq.min.js");oaiq("init",{pixelId:"ACrX4dgzdUPj7gezivgmcb",debug:true});`}
+      </Script>
+      <body className="flex min-h-full flex-col">
+        <OpenAIAdsRegistrationEvent />
+        {children}
+      </body>
     </html>
   );
 }
