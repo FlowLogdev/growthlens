@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && data.user) {
+      let registrationCompleted = false;
       const { data: existing } = await supabase
         .from("customers")
         .select("id")
@@ -26,14 +27,17 @@ export async function GET(request: NextRequest) {
 
       if (!existing) {
         const plan = new URL(destination, origin).searchParams.get("plan");
-        await supabase.from("customers").insert({
+        const { error: insertError } = await supabase.from("customers").insert({
           auth_user_id: data.user.id,
           email: data.user.email,
           plan_tier: isPlanTier(plan) ? plan : "starter",
         });
+        registrationCompleted = !insertError;
       }
 
-      return NextResponse.redirect(new URL(destination, origin));
+      const destinationUrl = new URL(destination, origin);
+      if (registrationCompleted) destinationUrl.searchParams.set("registration_completed", "1");
+      return NextResponse.redirect(destinationUrl);
     }
   }
 
