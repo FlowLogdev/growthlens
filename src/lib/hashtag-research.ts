@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { getAnthropicClient, CLAUDE_MODEL } from "@/lib/anthropic/client";
+import { getSecondaryAIClient, SECONDARY_AI_MODEL } from "@/lib/anthropic/client";
 
 const hashtagSchema = z.object({
   tag: z.string().trim().min(2).max(80),
@@ -21,7 +21,6 @@ export const providerResultSchema = z.object({
 });
 
 export type HashtagResearch = z.infer<typeof providerResultSchema> & {
-  providers: string[];
   generated_at: string;
 };
 
@@ -64,14 +63,14 @@ function extractJson(text: string) {
   return providerResultSchema.parse(JSON.parse(trimmed.slice(first, last + 1)));
 }
 
-async function researchWithClaude(input: ResearchInput) {
-  const message = await getAnthropicClient().messages.create({
-    model: CLAUDE_MODEL,
+async function researchWithSecondaryAI(input: ResearchInput) {
+  const message = await getSecondaryAIClient().messages.create({
+    model: SECONDARY_AI_MODEL,
     max_tokens: 1600,
     system: "You are a social research analyst. Search before answering. Favor relevance and evidence over raw hashtag popularity. Return only the requested JSON.",
     messages: [{ role: "user", content: promptFor(input) }],
     tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }],
-  }, { signal: AbortSignal.timeout(14_000) });
+  }, { signal: AbortSignal.timeout(45_000) });
   const text = message.content
     .filter((block) => block.type === "text")
     .map((block) => block.type === "text" ? block.text : "")
@@ -79,7 +78,7 @@ async function researchWithClaude(input: ResearchInput) {
   return extractJson(text);
 }
 
-type OpenAIResponse = {
+type PrimaryAIResponse = {
   output?: Array<{
     type?: string;
     content?: Array<{ type?: string; text?: string }>;
@@ -87,7 +86,7 @@ type OpenAIResponse = {
   error?: { message?: string };
 };
 
-async function researchWithOpenAI(input: ResearchInput) {
+async function researchWithPrimaryAI(input: ResearchInput) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -101,10 +100,10 @@ async function researchWithOpenAI(input: ResearchInput) {
       input: promptFor(input),
       max_output_tokens: 1800,
     }),
-    signal: AbortSignal.timeout(18_000),
+    signal: AbortSignal.timeout(25_000),
   });
-  const payload = await response.json() as OpenAIResponse;
-  if (!response.ok) throw new Error(payload.error?.message || `OpenAI research failed with ${response.status}`);
+  const payload = await response.json() as PrimaryAIResponse;
+  if (!response.ok) throw new Error(payload.error?.message || `Primary research failed with ${response.status}`);
   const text = (payload.output ?? [])
     .filter((item) => item.type === "message")
     .flatMap((item) => item.content ?? [])
@@ -121,22 +120,22 @@ function normalizeTag(input: string) {
 }
 
 export async function researchHashtags(input: ResearchInput): Promise<HashtagResearch> {
-  const jobs: Array<{ provider: string; run: () => Promise<z.infer<typeof providerResultSchema>> }> = [];
-  if (process.env.OPENAI_API_KEY) jobs.push({ provider: "ChatGPT", run: () => researchWithOpenAI(input) });
-  if (process.env.ANTHROPIC_API_KEY) jobs.push({ provider: "Claude", run: () => researchWithClaude(input) });
+  const jobs: Array<() => Promise<z.infer<typeof providerResultSchema>>> = [];
+  if (process.env.OPENAI_API_KEY) jobs.push(() => researchWithPrimaryAI(input));
+  if (process.env.ANTHROPIC_API_KEY) jobs.push(() => researchWithSecondaryAI(input));
   if (!jobs.length) throw new Error("AI_RESEARCH_NOT_CONFIGURED");
 
-  const settled = await Promise.allSettled(jobs.map((job) => job.run()));
-  const successful = settled.flatMap((result, index) => result.status === "fulfilled" ? [{ provider: jobs[index].provider, result: result.value }] : []);
+  const settled = await Promise.allSettled(jobs.map((run) => run()));
+  const successful = settled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
   for (const result of settled) {
-    if (result.status === "rejected") console.error("Hashtag research provider failed", (result.reason as Error).message);
+    if (result.status === "rejected") console.error("GrowthLens research request failed", (result.reason as Error).message);
   }
   if (!successful.length) throw new Error("AI_RESEARCH_FAILED");
 
   const hashtags = new Map<string, z.infer<typeof hashtagSchema>>();
   const contentAngles = new Set<string>();
   const sources = new Map<string, z.infer<typeof sourceSchema>>();
-  for (const { result } of successful) {
+  for (const result of successful) {
     for (const item of result.hashtags) {
       const tag = normalizeTag(item.tag);
       if (tag && !hashtags.has(tag.toLowerCase())) hashtags.set(tag.toLowerCase(), { ...item, tag });
@@ -146,11 +145,10 @@ export async function researchHashtags(input: ResearchInput): Promise<HashtagRes
   }
 
   return {
-    summary: successful.map(({ provider, result }) => `${provider}: ${result.summary}`).join("\n\n"),
+    summary: successful.map((result) => result.summary).join("\n\n"),
     hashtags: [...hashtags.values()].slice(0, 30),
     content_angles: [...contentAngles].slice(0, 8),
     sources: [...sources.values()].slice(0, 12),
-    providers: successful.map(({ provider }) => provider),
     generated_at: new Date().toISOString(),
   };
 }

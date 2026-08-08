@@ -171,8 +171,8 @@ export default function PrivacyPolicyPage() {
                 payment processing.
               </li>
               <li>
-                <strong className="text-gray-950">OpenAI and Anthropic</strong> for generating and
-                cross-checking account-specific insights and niche research from selected
+                <strong className="text-gray-950">AI processing providers</strong> for generating
+                account-specific insights and niche research from selected
                 performance data, post summaries, and the research prompts you submit.
               </li>
               <li>

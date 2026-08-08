@@ -1,5 +1,5 @@
 import "server-only";
-import { getAnthropicClient, CLAUDE_MODEL } from "./client";
+import { getSecondaryAIClient, SECONDARY_AI_MODEL } from "./client";
 
 export interface DailyMetricSummary {
   date: string;
@@ -79,15 +79,15 @@ export async function generateInsights(params: {
   topPosts: PostSummary[];
   bottomPosts: PostSummary[];
 }): Promise<{ result: AiInsightResult; raw: unknown }> {
-  const message = await getAnthropicClient().messages.create({
-    model: CLAUDE_MODEL,
+  const message = await getSecondaryAIClient().messages.create({
+    model: SECONDARY_AI_MODEL,
     max_tokens: 2048,
     messages: [{ role: "user", content: buildPrompt(params) }],
   });
 
   const textBlock = message.content.find((block) => block.type === "text");
   if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Claude response contained no text block");
+    throw new Error("Insight response contained no text block");
   }
 
   const result = JSON.parse(textBlock.text) as AiInsightResult;

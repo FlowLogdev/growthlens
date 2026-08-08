@@ -2,7 +2,7 @@
 
 Multi-tenant social growth SaaS. Customers connect their Facebook Page, Instagram
 Business account, and TikTok Business account and get a dashboard of historical
-metrics plus weekly Claude-generated organic growth recommendations. Billing via
+metrics plus weekly AI-generated organic growth recommendations. Billing via
 Stripe subscriptions.
 
 **Domain:** usegrowthlens.com
@@ -16,7 +16,7 @@ spec — this README covers what's implemented and how to run it.
   major since this is a fresh project
 - Supabase (Auth + Postgres with Row Level Security)
 - Stripe (subscriptions + customer portal)
-- Anthropic Claude API (`claude-sonnet-4-6`)
+- AI recommendation and research APIs
 - Resend (weekly digest email)
 - Recharts, Tailwind CSS
 - Vercel (hosting + Cron, configured via `vercel.ts`)
@@ -35,7 +35,7 @@ spec — this README covers what's implemented and how to run it.
 - Fan-out cron pattern (`src/app/api/cron/*`): a lightweight trigger route
   enqueues one job per account instead of looping through all customers in a
   single invocation
-- TikTok token-refresh cron (tokens expire in 24h) and a Claude analysis job
+- TikTok token-refresh cron (tokens expire in 24h) and an AI analysis job
   with the prompt template from the spec, wired to a weekly insights cron and
   digest email
 - Dashboard shell with all 8 pages from the spec (overview, connect, per-platform,
@@ -87,7 +87,7 @@ Defined in `vercel.ts` (Vercel's current recommended config format, replacing
 `vercel.json`):
 - `/api/cron/trigger-syncs` — every 6h, fans out one sync per active account
 - `/api/cron/refresh-tokens` — every 6h, refreshes TikTok tokens expiring soon
-- `/api/cron/generate-insights` — weekly, fans out Claude analysis per account
+- `/api/cron/generate-insights` — weekly, fans out AI analysis per account
 - `/api/cron/send-digests` — weekly, one Resend email per customer
 
 All cron-triggered routes require `Authorization: Bearer $CRON_SECRET`, which

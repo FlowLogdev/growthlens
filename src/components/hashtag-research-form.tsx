@@ -13,7 +13,6 @@ type ResearchResult = {
   hashtags: Hashtag[];
   content_angles: string[];
   sources: Array<{ title: string; url: string }>;
-  providers: string[];
   generated_at: string;
 };
 
@@ -23,7 +22,7 @@ const GROUPS: Array<{ key: Hashtag["category"]; label: string; description: stri
   { key: "discovery", label: "Broad discovery", description: "Larger topic tags used carefully for reach." },
 ];
 
-export function HashtagResearchForm({ configuredProviders }: { configuredProviders: string[] }) {
+export function HashtagResearchForm({ researchEnabled }: { researchEnabled: boolean }) {
   const [niche, setNiche] = useState("");
   const [audience, setAudience] = useState("");
   const [platform, setPlatform] = useState<"instagram" | "tiktok" | "both">("both");
@@ -46,14 +45,14 @@ export function HashtagResearchForm({ configuredProviders }: { configuredProvide
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ niche, audience, platform, region }),
-        signal: AbortSignal.timeout(25_000),
+        signal: AbortSignal.timeout(50_000),
       });
       const payload = await response.json() as ResearchResult & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Research could not be completed.");
       setResult(payload);
     } catch (requestError) {
       const message = (requestError as Error).name === "TimeoutError"
-        ? "The research took too long. Try a more specific niche or run it again."
+        ? "UseGrowthLens Bot could not find the information you need."
         : (requestError as Error).message;
       setError(message);
     } finally {
@@ -99,11 +98,11 @@ export function HashtagResearchForm({ configuredProviders }: { configuredProvide
         </div>
 
         {error && <p role="alert" className="mt-4 rounded-xl border border-[#ff7d66]/25 bg-[#ff7d66]/10 p-3 text-xs leading-5 text-[#ffc1b5]">{error}</p>}
-        <button type="submit" disabled={loading || niche.trim().length < 2 || configuredProviders.length === 0} className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#d9ff6b] px-5 text-sm font-bold text-[#172016] transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45">
+        <button type="submit" disabled={loading || niche.trim().length < 2 || !researchEnabled} className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#d9ff6b] px-5 text-sm font-bold text-[#172016] transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45">
           {loading ? "Searching current evidence..." : "Research hashtags"}
         </button>
         <p className="mt-3 text-center text-[11px] text-white/34">
-          {configuredProviders.length ? `Available research: ${configuredProviders.join(" + ")}` : "Add an Anthropic or OpenAI server key to enable research."}
+          {researchEnabled ? "GrowthLens Bot research is ready." : "GrowthLens Bot research is temporarily unavailable."}
         </p>
       </form>
 
@@ -122,7 +121,7 @@ export function HashtagResearchForm({ configuredProviders }: { configuredProvide
             <div>
               <div className="mx-auto h-10 w-10 animate-pulse rounded-full border border-[#d9ff6b]/45 bg-[#d9ff6b]/10" />
               <p className="mt-5 text-sm font-semibold text-white">Researching competitors and current topic signals</p>
-              <p className="mt-2 text-xs text-white/40">ChatGPT searches first while Claude cross-checks. Most requests finish within 20 seconds.</p>
+              <p className="mt-2 text-xs text-white/40">GrowthLens Bot is reviewing current sources and competitor signals.</p>
             </div>
           </div>
         )}
