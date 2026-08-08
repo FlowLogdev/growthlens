@@ -4,7 +4,7 @@ import { getAccountLimit } from "@/lib/plans";
 import { encryptToken } from "@/lib/encryption";
 import { verifyOAuthState } from "@/lib/oauth-state";
 import { isRateLimited } from "@/lib/rate-limit";
-import { exchangeTikTokCode, getTikTokUserInfo } from "@/lib/integrations/tiktok";
+import { exchangeTikTokCode, getTikTokUserInfo } from "@/lib/integrations/tiktok";\nimport { syncTikTokAccountData } from "@/lib/integrations/sync-tiktok";
 
 export async function GET(request: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL!;
@@ -58,19 +58,38 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    await supabase.from("platform_accounts").upsert(
-      {
-        customer_id: customerId,
-        platform: "tiktok",
-        account_id: tokenResponse.open_id,
-        account_name: userInfo?.data?.user?.display_name ?? null,
-        access_token: encryptToken(tokenResponse.access_token),
-        refresh_token: encryptToken(tokenResponse.refresh_token),
-        token_expires_at: expiresAt,
-        status: "active",
-      },
-      { onConflict: "customer_id,platform,account_id" },
-    );
+    const { data: connectedAccount, error: accountError } = await supabase
+      .from("platform_accounts")
+      .upsert(
+        {
+          customer_id: customerId,
+          platform: "tiktok",
+          account_id: tokenResponse.open_id,
+          account_name: userInfo?.data?.user?.display_name ?? null,
+          access_token: encryptToken(tokenResponse.access_token),
+          refresh_token: encryptToken(tokenResponse.refresh_token),
+          token_expires_at: expiresAt,
+          status: "active",
+        },
+        { onConflict: "customer_id,platform,account_id" },
+      )
+      .select("id")
+      .single();
+
+    if (accountError || !connectedAccount) {
+      throw new Error(accountError?.message ?? "TikTok account could not be saved");
+    }
+
+    try {
+      await syncTikTokAccountData({
+        accountId: connectedAccount.id,
+        customerId,
+        accessToken: tokenResponse.access_token,
+      });
+    } catch (syncError) {
+      console.error("Initial TikTok sync failed", syncError);
+      return NextResponse.redirect(`${siteUrl}/dashboard/connect?connected=tiktok&sync=failed`);
+    }
 
     return NextResponse.redirect(`${siteUrl}/dashboard/connect?connected=tiktok`);
   } catch (err) {
