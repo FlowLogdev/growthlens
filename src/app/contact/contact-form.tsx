@@ -8,9 +8,9 @@ const initialContactFormState: ContactFormState = {
   message: "",
 };
 
-function FieldError({ errors }: { errors?: string[] }) {
+function FieldError({ errors, id }: { errors?: string[]; id: string }) {
   if (!errors?.length) return null;
-  return <p className="mt-2 text-xs font-medium text-[#bb3f3f]">{errors[0]}</p>;
+  return <p id={id} className="mt-2 text-xs font-medium text-[#bb3f3f]">{errors[0]}</p>;
 }
 function ResultMessage({ state }: { state: ContactFormState }) {
   if (state.status === "idle") return null;
@@ -50,24 +50,30 @@ export function ContactForm({ defaultSubject = "" }: { defaultSubject?: string }
       <ResultMessage state={state} />
 
       <form action={formAction} className="space-y-5">
+        <p className="text-xs text-[var(--subtle)]">
+          All fields are required. Name must have 2 characters, subject 4, and description 20.
+        </p>
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label htmlFor="name" className="form-label">Name</label>
+            <label htmlFor="name" className="form-label">Name <span aria-hidden="true">*</span></label>
             <input
               id="name"
               name="name"
               type="text"
               autoComplete="name"
               required
+              minLength={2}
               maxLength={80}
               aria-invalid={Boolean(state.fieldErrors?.name)}
+              aria-describedby={state.fieldErrors?.name ? "name-error" : undefined}
               className="form-control"
               placeholder="Your name"
+              defaultValue={state.values?.name ?? ""}
             />
-            <FieldError errors={state.fieldErrors?.name} />
+            <FieldError id="name-error" errors={state.fieldErrors?.name} />
           </div>
           <div>
-            <label htmlFor="email" className="form-label">Email</label>
+            <label htmlFor="email" className="form-label">Email <span aria-hidden="true">*</span></label>
             <input
               id="email"
               name="email"
@@ -76,31 +82,35 @@ export function ContactForm({ defaultSubject = "" }: { defaultSubject?: string }
               required
               maxLength={254}
               aria-invalid={Boolean(state.fieldErrors?.email)}
+              aria-describedby={state.fieldErrors?.email ? "email-error" : undefined}
               className="form-control"
               placeholder="you@company.com"
+              defaultValue={state.values?.email ?? ""}
             />
-            <FieldError errors={state.fieldErrors?.email} />
+            <FieldError id="email-error" errors={state.fieldErrors?.email} />
           </div>
         </div>
 
         <div>
-          <label htmlFor="subject" className="form-label">Subject</label>
+          <label htmlFor="subject" className="form-label">Subject <span aria-hidden="true">*</span></label>
           <input
             id="subject"
             name="subject"
             type="text"
             required
+            minLength={4}
             maxLength={160}
-            defaultValue={defaultSubject}
+            defaultValue={state.values?.subject ?? defaultSubject}
             aria-invalid={Boolean(state.fieldErrors?.subject)}
+            aria-describedby={state.fieldErrors?.subject ? "subject-error" : undefined}
             className="form-control"
             placeholder="What can we help with?"
           />
-          <FieldError errors={state.fieldErrors?.subject} />
+          <FieldError id="subject-error" errors={state.fieldErrors?.subject} />
         </div>
 
         <div>
-          <label htmlFor="description" className="form-label">Description</label>
+          <label htmlFor="description" className="form-label">Description <span aria-hidden="true">*</span></label>
           <textarea
             id="description"
             name="description"
@@ -109,10 +119,12 @@ export function ContactForm({ defaultSubject = "" }: { defaultSubject?: string }
             maxLength={5000}
             rows={8}
             aria-invalid={Boolean(state.fieldErrors?.description)}
+            aria-describedby={state.fieldErrors?.description ? "description-error" : undefined}
             className="form-control resize-y"
             placeholder="Tell us what happened, what you expected, and any steps that help us reproduce the issue."
+            defaultValue={state.values?.description ?? ""}
           />
-          <FieldError errors={state.fieldErrors?.description} />
+          <FieldError id="description-error" errors={state.fieldErrors?.description} />
           <p className="mt-2 text-xs text-[var(--subtle)]">Do not include passwords, access tokens, or payment card details.</p>
         </div>
 
