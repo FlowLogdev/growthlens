@@ -42,6 +42,92 @@ const jsonInstructions = `Return only valid JSON with this exact shape:
 }
 Use only category values niche, growth, or discovery. Include 18 to 24 unique hashtags. A niche tag is tightly relevant, a growth tag has broader adjacent discovery potential, and a discovery tag is broad but still relevant. Never promise virality or invent exact usage counts. Prefer recent evidence, active competitors, platform discovery pages, and credible marketing research. Include the original web sources you used.`;
 
+const recordResearchTool = {
+  name: "record_hashtag_research",
+  description:
+    "Record the final hashtag research after searching current web evidence. Call this exactly once after research is complete. Every field must follow the schema and contain only evidence-supported recommendations.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      summary: { type: "string", minLength: 10, maxLength: 900 },
+      hashtags: {
+        type: "array",
+        minItems: 6,
+        maxItems: 30,
+        items: {
+          type: "object",
+          properties: {
+            tag: { type: "string", minLength: 2, maxLength: 80 },
+            category: { type: "string", enum: ["niche", "growth", "discovery"] },
+            reason: { type: "string", minLength: 4, maxLength: 240 },
+          },
+          required: ["tag", "category", "reason"],
+          additionalProperties: false,
+        },
+      },
+      content_angles: {
+        type: "array",
+        minItems: 2,
+        maxItems: 8,
+        items: { type: "string", minLength: 4, maxLength: 180 },
+      },
+      sources: {
+        type: "array",
+        maxItems: 12,
+        items: {
+          type: "object",
+          properties: {
+            title: { type: "string", minLength: 2, maxLength: 180 },
+            url: { type: "string", format: "uri" },
+          },
+          required: ["title", "url"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["summary", "hashtags", "content_angles", "sources"],
+    additionalProperties: false,
+  },
+};
+
+const primaryResearchSchema = {
+  type: "object" as const,
+  properties: {
+    summary: { type: "string" },
+    hashtags: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          tag: { type: "string" },
+          category: { type: "string", enum: ["niche", "growth", "discovery"] },
+          reason: { type: "string" },
+        },
+        required: ["tag", "category", "reason"],
+        additionalProperties: false,
+      },
+    },
+    content_angles: {
+      type: "array",
+      items: { type: "string" },
+    },
+    sources: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          url: { type: "string" },
+        },
+        required: ["title", "url"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["summary", "hashtags", "content_angles", "sources"],
+  additionalProperties: false,
+};
+
 function promptFor(input: ResearchInput) {
   return `Research current high-opportunity social hashtags and competitor language for this request.
 
@@ -66,11 +152,22 @@ function extractJson(text: string) {
 async function researchWithSecondaryAI(input: ResearchInput) {
   const message = await getSecondaryAIClient().messages.create({
     model: SECONDARY_AI_MODEL,
-    max_tokens: 1600,
-    system: "You are a social research analyst. Search before answering. Favor relevance and evidence over raw hashtag popularity. Return only the requested JSON.",
+    max_tokens: 2600,
+    system: "You are a social research analyst. Search before answering. Favor relevance and evidence over raw hashtag popularity. Finish by calling record_hashtag_research exactly once; do not write the final result as free-form text.",
     messages: [{ role: "user", content: promptFor(input) }],
-    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }],
-  }, { signal: AbortSignal.timeout(45_000) });
+    tools: [
+      { type: "web_search_20250305", name: "web_search", max_uses: 2 },
+      recordResearchTool,
+    ],
+  }, { signal: AbortSignal.timeout(60_000) });
+
+  const structured = message.content.find(
+    (block) => block.type === "tool_use" && block.name === recordResearchTool.name,
+  );
+  if (structured?.type === "tool_use") {
+    return providerResultSchema.parse(structured.input);
+  }
+
   const text = message.content
     .filter((block) => block.type === "text")
     .map((block) => block.type === "text" ? block.text : "")
@@ -84,6 +181,8 @@ type PrimaryAIResponse = {
     content?: Array<{ type?: string; text?: string }>;
   }>;
   error?: { message?: string };
+  status?: string;
+  incomplete_details?: { reason?: string };
 };
 
 async function researchWithPrimaryAI(input: ResearchInput) {
@@ -98,12 +197,23 @@ async function researchWithPrimaryAI(input: ResearchInput) {
       reasoning: { effort: "low" },
       tools: [{ type: "web_search", search_context_size: "low" }],
       input: promptFor(input),
-      max_output_tokens: 1800,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "hashtag_research",
+          strict: true,
+          schema: primaryResearchSchema,
+        },
+      },
+      max_output_tokens: 3200,
     }),
-    signal: AbortSignal.timeout(25_000),
+    signal: AbortSignal.timeout(45_000),
   });
   const payload = await response.json() as PrimaryAIResponse;
   if (!response.ok) throw new Error(payload.error?.message || `Primary research failed with ${response.status}`);
+  if (payload.status === "incomplete") {
+    throw new Error(`Primary research incomplete: ${payload.incomplete_details?.reason || "unknown reason"}`);
+  }
   const text = (payload.output ?? [])
     .filter((item) => item.type === "message")
     .flatMap((item) => item.content ?? [])
@@ -120,15 +230,19 @@ function normalizeTag(input: string) {
 }
 
 export async function researchHashtags(input: ResearchInput): Promise<HashtagResearch> {
-  const jobs: Array<() => Promise<z.infer<typeof providerResultSchema>>> = [];
-  if (process.env.OPENAI_API_KEY) jobs.push(() => researchWithPrimaryAI(input));
-  if (process.env.ANTHROPIC_API_KEY) jobs.push(() => researchWithSecondaryAI(input));
-  if (!jobs.length) throw new Error("AI_RESEARCH_NOT_CONFIGURED");
+  const successful: Array<z.infer<typeof providerResultSchema>> = [];
+  const providers: Array<() => Promise<z.infer<typeof providerResultSchema>>> = [];
+  if (process.env.OPENAI_API_KEY) providers.push(() => researchWithPrimaryAI(input));
+  if (process.env.ANTHROPIC_API_KEY) providers.push(() => researchWithSecondaryAI(input));
+  if (!providers.length) throw new Error("AI_RESEARCH_NOT_CONFIGURED");
 
-  const settled = await Promise.allSettled(jobs.map((run) => run()));
-  const successful = settled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
-  for (const result of settled) {
-    if (result.status === "rejected") console.error("GrowthLens research request failed", (result.reason as Error).message);
+  for (const run of providers) {
+    try {
+      successful.push(await run());
+      break;
+    } catch (error) {
+      console.error("GrowthLens research request failed", (error as Error).message);
+    }
   }
   if (!successful.length) throw new Error("AI_RESEARCH_FAILED");
 
