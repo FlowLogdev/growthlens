@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
 import { hasProductAccess } from "@/lib/entitlements";
 import { createClient } from "@/lib/supabase/server";
-import { buildTikTokAuthUrl } from "@/lib/integrations/tiktok";
+import { buildTikTokAuthUrl, getTikTokOAuthConfiguration } from "@/lib/integrations/tiktok";
 import { createOAuthState } from "@/lib/oauth-state";
 
 export async function GET() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://usegrowthlens.com";
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.redirect(new URL("/login", process.env.NEXT_PUBLIC_SITE_URL));
+    return NextResponse.redirect(new URL("/login", siteUrl));
   }
 
   const { data: customer } = await supabase
@@ -26,8 +27,12 @@ export async function GET() {
 
   if (!hasProductAccess(customer)) {
     return NextResponse.redirect(
-      new URL("/dashboard/billing?error=subscription_required", process.env.NEXT_PUBLIC_SITE_URL),
+      new URL("/dashboard/billing?error=subscription_required", siteUrl),
     );
+  }
+
+  if (!getTikTokOAuthConfiguration().ready) {
+    return NextResponse.redirect(new URL("/dashboard/connect?error=tiktok_not_configured", siteUrl));
   }
 
   const state = createOAuthState(customer.id);
