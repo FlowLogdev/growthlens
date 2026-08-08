@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { getAnthropicClient, CLAUDE_MODEL } from "@/lib/anthropic/client";
+import { getSecondaryAIClient, SECONDARY_AI_MODEL } from "@/lib/anthropic/client";
 import { isRateLimited } from "@/lib/rate-limit";
 
 const requestSchema = z.object({
@@ -13,7 +13,7 @@ const requestSchema = z.object({
   })).max(8).optional(),
 });
 
-type OpenAIResponse = {
+type PrimaryAIResponse = {
   output?: Array<{
     type?: string;
     content?: Array<{ type?: string; text?: string }>;
@@ -24,7 +24,7 @@ type OpenAIResponse = {
 const coachSystemPrompt =
   "You are the GrowthLens coach inside a social analytics dashboard. Explain the current page, account connection steps, and data-backed growth actions. Use only the supplied customer context. Never invent metrics, causes, competitor facts, or guarantees. If data is missing, say what must be connected or synced first. Distinguish observation from hypothesis. Give concise, practical guidance with one prioritized next experiment and a measurement window. Do not claim that GrowthLens can publish or change a social account.";
 
-function extractOpenAIText(payload: OpenAIResponse) {
+function extractPrimaryAIText(payload: PrimaryAIResponse) {
   return (payload.output ?? [])
     .filter((item) => item.type === "message")
     .flatMap((item) => item.content ?? [])
@@ -34,7 +34,7 @@ function extractOpenAIText(payload: OpenAIResponse) {
     .trim();
 }
 
-async function askOpenAI(prompt: string) {
+async function askPrimaryAI(prompt: string) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -50,18 +50,18 @@ async function askOpenAI(prompt: string) {
     }),
     signal: AbortSignal.timeout(12_000),
   });
-  const payload = await response.json() as OpenAIResponse;
-  if (!response.ok) throw new Error(payload.error?.message || `OpenAI coach failed with ${response.status}`);
-  return extractOpenAIText(payload);
+  const payload = await response.json() as PrimaryAIResponse;
+  if (!response.ok) throw new Error(payload.error?.message || `Primary coach request failed with ${response.status}`);
+  return extractPrimaryAIText(payload);
 }
 
-async function askClaude(prompt: string) {
-  const message = await getAnthropicClient().messages.create({
-    model: CLAUDE_MODEL,
+async function askSecondaryAI(prompt: string) {
+  const message = await getSecondaryAIClient().messages.create({
+    model: SECONDARY_AI_MODEL,
     max_tokens: 320,
     system: `${coachSystemPrompt} Act as a second analyst. Give only a brief cross-check that adds one caveat, missing signal, or useful measurement detail. Do not repeat the full answer.`,
     messages: [{ role: "user", content: prompt }],
-  }, { signal: AbortSignal.timeout(10_000) });
+  }, { signal: AbortSignal.timeout(30_000) });
   const textBlock = message.content.find((block) => block.type === "text");
   return textBlock?.type === "text" ? textBlock.text.trim() : "";
 }
@@ -160,26 +160,25 @@ export async function POST(request: NextRequest) {
   };
 
   const prompt = `CUSTOMER CONTEXT\n${JSON.stringify(context)}\n\nRECENT CONVERSATION\n${JSON.stringify(parsed.data.history ?? [])}\n\nQUESTION\n${parsed.data.question}`;
-  const openAIJob = process.env.OPENAI_API_KEY
-    ? askOpenAI(prompt).catch((error) => {
-        console.error("OpenAI coach request failed", (error as Error).message);
+  const primaryJob = process.env.OPENAI_API_KEY
+    ? askPrimaryAI(prompt).catch((error) => {
+        console.error("Primary coach request failed", (error as Error).message);
         return "";
       })
     : Promise.resolve("");
-  const claudeJob = process.env.ANTHROPIC_API_KEY
-    ? askClaude(prompt).catch((error) => {
-        console.error("Claude coach request failed", (error as Error).message);
+  const secondaryJob = process.env.ANTHROPIC_API_KEY
+    ? askSecondaryAI(prompt).catch((error) => {
+        console.error("Secondary coach request failed", (error as Error).message);
         return "";
       })
     : Promise.resolve("");
 
-  const [openAIAnswer, claudeCrossCheck] = await Promise.all([openAIJob, claudeJob]);
-  const answer = openAIAnswer
-    ? [openAIAnswer, claudeCrossCheck ? `Claude cross-check: ${claudeCrossCheck}` : ""].filter(Boolean).join("\n\n")
-    : claudeCrossCheck;
+  const [primaryAnswer, secondaryAnswer] = await Promise.all([primaryJob, secondaryJob]);
+  const answer = primaryAnswer
+    ? [primaryAnswer, secondaryAnswer].filter(Boolean).join("\n\n")
+    : secondaryAnswer;
 
   return NextResponse.json({
     answer: answer || fallbackAnswer(parsed.data.question, accounts?.length ?? 0),
-    providers: [openAIAnswer ? "ChatGPT" : null, claudeCrossCheck ? "Claude" : null].filter(Boolean),
   });
 }
