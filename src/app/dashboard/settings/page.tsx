@@ -11,47 +11,51 @@ export default async function SettingsPage() {
     .neq("status", "revoked");
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Settings</h1>
+    <div className="space-y-7">
+      <header>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#d9ff6b]">Workspace control</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">Settings</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">Manage your business identity and connected data sources.</p>
+      </header>
 
-      <div className="space-y-3">
-        <h2 className="font-medium">Account details</h2>
+      <section className="rounded-2xl border border-white/11 bg-[#101513]/72 p-5 backdrop-blur-xl sm:p-6">
+        <h2 className="font-semibold text-white">Account details</h2>
         <form action={updateBusinessName} className="flex max-w-sm items-end gap-2">
           <div className="flex-1">
-            <label htmlFor="business_name" className="block text-sm text-gray-600">
+            <label htmlFor="business_name" className="mt-4 block text-xs font-semibold text-white/62">
               Business name
             </label>
             <input
               id="business_name"
               name="business_name"
               defaultValue={customer.business_name ?? ""}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+              className="mt-2 min-h-11 w-full rounded-xl border border-white/15 bg-[#0d120f]/78 px-3 py-2 text-sm text-white outline-none focus:border-[#d9ff6b]/60"
             />
           </div>
-          <button type="submit" className="rounded bg-black px-3 py-2 text-sm text-white">
+          <button type="submit" className="min-h-11 rounded-full bg-[#d9ff6b] px-5 py-2 text-sm font-bold text-[#172016]">
             Save
           </button>
         </form>
-        <p className="text-sm text-gray-500">Email: {customer.email}</p>
-      </div>
+        <p className="mt-4 text-xs text-white/40">Account email: {customer.email}</p>
+      </section>
 
-      <div className="space-y-3">
-        <h2 className="font-medium">Connected platforms</h2>
+      <section className="rounded-2xl border border-white/11 bg-[#101513]/72 p-5 backdrop-blur-xl sm:p-6">
+        <h2 className="font-semibold text-white">Connected platforms</h2>
         {!accounts?.length ? (
-          <p className="text-sm text-gray-500">No accounts connected.</p>
+          <p className="mt-4 text-sm text-white/42">No accounts connected.</p>
         ) : (
           <ul className="space-y-2">
             {accounts.map((account) => (
               <li
                 key={account.id}
-                className="flex items-center justify-between rounded border border-gray-200 p-3 text-sm"
+                className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm"
               >
-                <span>
-                  {account.platform} — {account.account_name} ({account.status})
+                <span className="capitalize text-white/68">
+                  {account.platform} - {account.account_name} ({account.status})
                 </span>
                 <form action={disconnectAccount}>
                   <input type="hidden" name="account_id" value={account.id} />
-                  <button type="submit" className="text-red-600 hover:underline">
+                  <button type="submit" className="text-xs font-semibold text-[#ff9e8b] hover:text-[#ffc1b5]">
                     Disconnect
                   </button>
                 </form>
@@ -59,7 +63,7 @@ export default async function SettingsPage() {
             ))}
           </ul>
         )}
-      </div>
+      </section>
     </div>
   );
 }

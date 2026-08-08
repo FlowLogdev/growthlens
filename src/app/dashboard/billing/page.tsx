@@ -19,10 +19,11 @@ export default async function BillingPage({
   const hasSubscription = Boolean(customer.stripe_subscription_id);
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-3xl space-y-7">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">Subscription</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Billing</h1>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#d9ff6b]">Subscription</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">Billing</h1>
+        <p className="mt-3 text-sm leading-6 text-white/50">Choose your plan and manage secure billing through Stripe.</p>
       </div>
 
       {params.welcome === "1" && (
@@ -46,15 +47,15 @@ export default async function BillingPage({
         </p>
       )}
 
-      <div className="rounded-xl border border-gray-200 bg-white p-5 text-sm">
+      <div className="rounded-2xl border border-white/11 bg-[#101513]/72 p-5 text-sm backdrop-blur-xl">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-400">Current plan</p>
-            <p className="mt-1 font-semibold capitalize">{customer.plan_tier}</p>
+            <p className="text-xs uppercase tracking-wide text-white/35">Current plan</p>
+            <p className="mt-1 font-semibold capitalize text-white">{customer.plan_tier}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-400">Status</p>
-            <p className="mt-1 font-semibold capitalize">{customer.subscription_status}</p>
+            <p className="text-xs uppercase tracking-wide text-white/35">Status</p>
+            <p className="mt-1 font-semibold capitalize text-white">{customer.subscription_status}</p>
           </div>
         </div>
       </div>
@@ -62,13 +63,13 @@ export default async function BillingPage({
       {hasSubscription ? (
         <ManageBillingButton />
       ) : (
-        <div className="rounded-xl border border-gray-200 bg-white p-5">
-          <p className="mb-4 text-sm text-gray-600">Choose a monthly plan. Stripe securely collects and stores your payment details.</p>
+        <div className="rounded-2xl border border-white/11 bg-[#101513]/72 p-5 backdrop-blur-xl">
+          <p className="mb-4 text-sm text-white/50">Choose a monthly plan. Stripe securely collects and stores your payment details.</p>
           <CheckoutButtons initialTier={selectedPlan} />
         </div>
       )}
 
-      <p className="text-xs leading-5 text-gray-500">
+      <p className="text-xs leading-5 text-white/40">
         Need help with a payment or subscription? <Link href="/contact?subject=Billing%20support" className="font-medium underline">Open a support ticket</Link>.
       </p>
     </div>
