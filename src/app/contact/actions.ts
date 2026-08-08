@@ -27,6 +27,8 @@ const ticketSchema = z.object({
 
 type TicketField = "name" | "email" | "subject" | "description";
 
+type TicketValues = Record<TicketField, string>;
+
 type TicketReceipt = {
   ticket_id: string;
   ticket_number: string;
@@ -39,37 +41,74 @@ export type ContactFormState = {
   message: string;
   ticketNumber?: string;
   fieldErrors?: Partial<Record<TicketField, string[]>>;
+  values?: TicketValues;
 };
+
+function readFormText(formData: FormData, name: string) {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : "";
+}
+
+function formatFieldList(labels: string[]) {
+  if (labels.length <= 1) return labels[0] ?? "the highlighted fields";
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")}, and ${labels.at(-1)}`;
+}
 
 export async function createSupportTicket(
   _previousState: ContactFormState,
   formData: FormData,
 ): Promise<ContactFormState> {
+  const rawValues = {
+    name: readFormText(formData, "name"),
+    email: readFormText(formData, "email"),
+    subject: readFormText(formData, "subject"),
+    description: readFormText(formData, "description"),
+  };
+  const preservedValues: TicketValues = {
+    name: rawValues.name.slice(0, 80),
+    email: rawValues.email.slice(0, 254),
+    subject: rawValues.subject.slice(0, 160),
+    description: rawValues.description.slice(0, 5000),
+  };
   const parsed = ticketSchema.safeParse({
-    name: formData.get("name"),
-    email: formData.get("email"),
-    subject: formData.get("subject"),
-    description: formData.get("description"),
-    company_website: formData.get("company_website") ?? "",
+    ...rawValues,
+    company_website: readFormText(formData, "company_website"),
   });
 
   if (!parsed.success) {
     const fieldErrors = parsed.error.flatten().fieldErrors;
+    const visibleErrors = {
+      name: fieldErrors.name,
+      email: fieldErrors.email,
+      subject: fieldErrors.subject,
+      description: fieldErrors.description,
+    };
+    const invalidLabels = [
+      visibleErrors.name?.length ? "Name" : null,
+      visibleErrors.email?.length ? "Email" : null,
+      visibleErrors.subject?.length ? "Subject" : null,
+      visibleErrors.description?.length ? "Description" : null,
+    ].filter((label): label is string => Boolean(label));
+
     return {
       status: "error",
-      message: "Please check the highlighted fields.",
-      fieldErrors: {
-        name: fieldErrors.name,
-        email: fieldErrors.email,
-        subject: fieldErrors.subject,
-        description: fieldErrors.description,
-      },
+      message: `Please check: ${formatFieldList(invalidLabels)}.`,
+      fieldErrors: visibleErrors,
+      values: preservedValues,
     };
   }
 
   if (parsed.data.company_website) {
     return { status: "success", message: "Your request has been received." };
   }
+
+  const validValues: TicketValues = {
+    name: parsed.data.name,
+    email: parsed.data.email,
+    subject: parsed.data.subject,
+    description: parsed.data.description,
+  };
 
   try {
     const requestHeaders = await headers();
@@ -85,6 +124,7 @@ export async function createSupportTicket(
       return {
         status: "error",
         message: "Too many requests were submitted. Please wait 10 minutes and try again.",
+        values: validValues,
       };
     }
 
@@ -107,6 +147,7 @@ export async function createSupportTicket(
         message: rateLimited
           ? "Too many requests were submitted. Please wait 10 minutes and try again."
           : "We could not open your ticket right now. Please email support@flowlog.dev directly.",
+        values: validValues,
       };
     }
 
@@ -177,6 +218,7 @@ export async function createSupportTicket(
     return {
       status: "error",
       message: "We could not open your ticket right now. Please email support@flowlog.dev directly.",
+      values: validValues,
     };
   }
 }
