@@ -13,8 +13,8 @@ const linkClassName = "font-medium text-gray-950 underline underline-offset-4 ho
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="min-h-screen bg-white text-gray-700">
-      <div className="mx-auto max-w-3xl px-5 py-12 sm:px-8 sm:py-16">
+    <main className="legal-shell min-h-[100dvh] text-white/72">
+      <div className="legal-content relative mx-auto max-w-4xl px-5 py-12 sm:px-10 sm:py-16">
         <Link href="/" className="text-sm font-semibold text-gray-950 hover:text-gray-600">
           GrowthLens
         </Link>
@@ -27,7 +27,7 @@ export default function PrivacyPolicyPage() {
             Privacy Policy
           </h1>
           <p className="mt-4 text-sm text-gray-500">
-            Effective and last updated: <time dateTime="2026-08-07">August 7, 2026</time>
+            Effective and last updated: <time dateTime="2026-08-08">August 8, 2026</time>
           </p>
         </header>
 
@@ -114,8 +114,8 @@ export default function PrivacyPolicyPage() {
                 insights used in analytics and recommendations.
               </li>
               <li>
-                TikTok <code>user.info.basic</code>, <code>video.list</code>, and
-                <code>video.insights</code> to retrieve your connected profile, videos, and their
+                TikTok <code>user.info.basic</code>, <code>user.info.stats</code>, and
+                <code>video.list</code> to retrieve your connected profile, account statistics, videos, and their
                 performance metrics.
               </li>
             </ul>
@@ -171,8 +171,9 @@ export default function PrivacyPolicyPage() {
                 payment processing.
               </li>
               <li>
-                <strong className="text-gray-950">Anthropic</strong> for generating account-specific
-                insights from selected performance data and post summaries.
+                <strong className="text-gray-950">OpenAI and Anthropic</strong> for generating and
+                cross-checking account-specific insights and niche research from selected
+                performance data, post summaries, and the research prompts you submit.
               </li>
               <li>
                 <strong className="text-gray-950">Resend</strong> for transactional and weekly

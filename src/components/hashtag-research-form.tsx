@@ -46,12 +46,16 @@ export function HashtagResearchForm({ configuredProviders }: { configuredProvide
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ niche, audience, platform, region }),
+        signal: AbortSignal.timeout(25_000),
       });
       const payload = await response.json() as ResearchResult & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Research could not be completed.");
       setResult(payload);
     } catch (requestError) {
-      setError((requestError as Error).message);
+      const message = (requestError as Error).name === "TimeoutError"
+        ? "The research took too long. Try a more specific niche or run it again."
+        : (requestError as Error).message;
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -118,7 +122,7 @@ export function HashtagResearchForm({ configuredProviders }: { configuredProvide
             <div>
               <div className="mx-auto h-10 w-10 animate-pulse rounded-full border border-[#d9ff6b]/45 bg-[#d9ff6b]/10" />
               <p className="mt-5 text-sm font-semibold text-white">Researching competitors and current topic signals</p>
-              <p className="mt-2 text-xs text-white/40">This can take up to a minute.</p>
+              <p className="mt-2 text-xs text-white/40">ChatGPT searches first while Claude cross-checks. Most requests finish within 20 seconds.</p>
             </div>
           </div>
         )}

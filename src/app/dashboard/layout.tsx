@@ -58,7 +58,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </header>
         <main className="mx-auto w-full max-w-[1120px] p-4 pb-28 sm:p-6 sm:pb-28 lg:p-8 xl:pb-8">{children}</main>
         </div>
-        <GrowthCoach accountCount={accountCount ?? 0} aiEnabled={Boolean(process.env.ANTHROPIC_API_KEY)} />
+        <GrowthCoach
+          accountCount={accountCount ?? 0}
+          aiEnabled={Boolean(process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY)}
+        />
       </div>
     </div>
   );

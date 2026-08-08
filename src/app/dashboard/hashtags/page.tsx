@@ -2,8 +2,8 @@ import { HashtagResearchForm } from "@/components/hashtag-research-form";
 
 export default function ViralHashtagsPage() {
   const configuredProviders = [
-    process.env.ANTHROPIC_API_KEY ? "Claude" : null,
-    process.env.OPENAI_API_KEY ? "OpenAI" : null,
+    process.env.OPENAI_API_KEY ? "ChatGPT primary" : null,
+    process.env.ANTHROPIC_API_KEY ? "Claude cross-check" : null,
   ].filter((provider): provider is string => Boolean(provider));
 
   return (
