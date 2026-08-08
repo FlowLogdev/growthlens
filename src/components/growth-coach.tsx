@@ -63,7 +63,14 @@ export function GrowthCoach({ accountCount, aiEnabled }: { accountCount: number;
       const response = await fetch("/api/coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: submitted, page: pageLabel, history: messages.slice(-6) }),
+        body: JSON.stringify({
+          question: submitted,
+          page: pageLabel,
+          history: messages.slice(-6).map((message) => ({
+            ...message,
+            content: message.content.slice(0, 2_000),
+          })),
+        }),
         signal: AbortSignal.timeout(35_000),
       });
       const payload = (await response.json()) as { answer?: string; error?: string };
