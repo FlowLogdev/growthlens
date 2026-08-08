@@ -90,7 +90,7 @@ export async function refreshTikTokToken(refreshToken: string): Promise<TikTokTo
 
 export async function getTikTokUserInfo(accessToken: string) {
   const url = new URL(`${API_BASE}/v2/user/info/`);
-  url.searchParams.set("fields", "open_id,display_name,avatar_url,follower_count");
+  url.searchParams.set(\n    "fields",\n    "open_id,display_name,avatar_url,follower_count,following_count,likes_count,video_count",\n  );
 
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
