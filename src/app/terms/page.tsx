@@ -15,7 +15,7 @@ export default function TermsOfServicePage() {
   return (
     <main className="legal-shell min-h-[100dvh] text-white/72">
       <div className="legal-content relative mx-auto max-w-4xl px-5 py-12 sm:px-10 sm:py-16">
-        <Link href="/" className="text-sm font-semibold text-gray-950 hover:text-gray-600">
+        <Link href="/home" className="text-sm font-semibold text-gray-950 hover:text-gray-600">
           GrowthLens
         </Link>
 

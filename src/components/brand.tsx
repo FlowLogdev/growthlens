@@ -20,9 +20,9 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
     </span>
   );
 }
-export function BrandLink({ className = "" }: { className?: string }) {
+export function BrandLink({ className = "", href = "/home" }: { className?: string; href?: string }) {
   return (
-    <Link href="/" aria-label="GrowthLens home" className={className}>
+    <Link href={href} aria-label="GrowthLens home" className={className}>
       <BrandMark />
     </Link>
   );

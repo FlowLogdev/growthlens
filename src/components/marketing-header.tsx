@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandLink } from "@/components/brand";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export function MarketingHeader() {
   return (
@@ -20,6 +21,7 @@ export function MarketingHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <div className="hidden sm:block"><LanguageSwitcher compact /></div>
           <Link
             href="/login"
             className="hidden rounded-full px-3 py-2 text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--ink)] sm:inline-flex"

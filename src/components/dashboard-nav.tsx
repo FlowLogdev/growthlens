@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLocale } from "@/components/locale-provider";
 
 export const DASHBOARD_NAV_ITEMS = [
   { href: "/dashboard", label: "Overview" },
@@ -17,6 +18,7 @@ export const DASHBOARD_NAV_ITEMS = [
 
 export function DashboardNav({ mobile = false }: { mobile?: boolean }) {
   const pathname = usePathname();
+  const { t } = useLocale();
 
   return (
     <nav aria-label="Dashboard" className={mobile ? "flex min-w-max gap-2" : "space-y-1"}>
@@ -35,7 +37,7 @@ export function DashboardNav({ mobile = false }: { mobile?: boolean }) {
                 : "text-white/58 hover:bg-white/[0.07] hover:text-white"
             }`}
           >
-            {item.label}
+            {t(item.label)}
           </Link>
         );
       })}

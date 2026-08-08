@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BrandMark } from "@/components/brand";
+import { BrandLink } from "@/components/brand";
 
 const FOOTER_LINKS = [
   { href: "/pricing", label: "Pricing" },
@@ -14,7 +14,7 @@ export function MarketingFooter() {
     <footer className="border-t border-[var(--line)]">
       <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1fr_auto] md:items-end lg:px-8">
         <div>
-          <BrandMark />
+          <BrandLink />
           <p className="mt-4 max-w-sm text-sm leading-6 text-[var(--muted)]">
             Practical social growth intelligence for creators, small businesses, and focused teams.
           </p>

@@ -4,6 +4,7 @@ import { signOut } from "../(auth)/actions";
 import { BrandMark } from "@/components/brand";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { GrowthCoach } from "@/components/growth-coach";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { requireCurrentCustomer } from "@/lib/current-customer";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -30,8 +31,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
       <aside className="hidden w-60 shrink-0 flex-col border-r border-white/10 bg-[#0d120f]/78 p-5 backdrop-blur-2xl md:flex">
         <div className="mb-7 px-1 [--ink:#f2f4ef]">
-          <BrandMark />
+          <Link href="/dashboard" aria-label="GrowthLens dashboard" className="inline-flex rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d9ff6b]">
+            <BrandMark />
+          </Link>
           <p className="mt-3 truncate text-xs text-white/42">{customer.business_name ?? customer.email}</p>
+          <div className="mt-4"><LanguageSwitcher /></div>
         </div>
         <DashboardNav />
         <form action={signOut} className="mt-auto px-2 pt-8">
@@ -44,8 +48,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="min-w-0 flex-1">
         <header className="border-b border-white/10 bg-[#0d120f]/78 px-4 py-3 backdrop-blur-2xl md:hidden">
           <div className="flex items-center justify-between [--ink:#f2f4ef]">
-            <BrandMark />
+            <Link href="/dashboard" aria-label="GrowthLens dashboard"><BrandMark /></Link>
             <div className="flex items-center gap-4 text-sm">
+            <LanguageSwitcher compact />
             <Link href="/dashboard/billing" className="text-white/64">Billing</Link>
             <form action={signOut}>
               <button type="submit" className="text-white/64">Log out</button>

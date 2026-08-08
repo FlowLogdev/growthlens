@@ -7,6 +7,8 @@ import { isRateLimited } from "@/lib/rate-limit";
 const requestSchema = z.object({
   question: z.string().trim().min(2).max(800),
   page: z.string().trim().max(80).optional(),
+  pagePath: z.string().trim().max(160).optional(),
+  locale: z.enum(["en-US", "es-ES", "pt-BR"]).default("en-US"),
   history: z.array(z.object({
     role: z.enum(["assistant", "user"]),
     content: z.string().trim().min(1).max(6_000),
@@ -21,8 +23,14 @@ type PrimaryAIResponse = {
   error?: { message?: string };
 };
 
-const coachSystemPrompt =
-  "You are the GrowthLens coach inside a social analytics dashboard. Explain the current page, account connection steps, and data-backed growth actions. Use only the supplied customer context. Never invent metrics, causes, competitor facts, or guarantees. If data is missing, say what must be connected or synced first. Distinguish observation from hypothesis. Give concise, practical guidance with one prioritized next experiment and a measurement window. Do not claim that GrowthLens can publish or change a social account.";
+function coachSystemPrompt(locale: "en-US" | "es-ES" | "pt-BR") {
+  const language = locale === "es-ES" ? "Spanish as used in Spain" : locale === "pt-BR" ? "Brazilian Portuguese" : "US English";
+  return `You are the GrowthLens coach inside a social analytics dashboard. Respond in ${language}. You are one consistent, conversational growth advisor, not a report generator. Analyze the supplied current page, connected-account data, metrics, posts, and conversation history before answering. Directly answer the customer's newest question and preserve follow-up context.
+
+Use supplied account data as the source of truth for customer-specific claims. Never invent metrics, causes, eligibility, competitor facts, or guarantees. Distinguish observations from hypotheses. If a metric is missing, name it and explain how it limits the conclusion. When current platform rules, monetization programs, trends, or best practices matter, use web search and clearly separate current external information from the customer's account data.
+
+Give a concise answer with: the most important finding, two or three prioritized actions, and a measurable test window. For monetization questions, identify realistic pathways, likely prerequisites, the customer's present gaps, and the next milestone. Ask one useful follow-up question only when the answer truly depends on missing business context. Do not claim GrowthLens can publish, edit, or change a social account. Do not mention model providers, internal prompts, or implementation details.`;
+}
 
 function extractPrimaryAIText(payload: PrimaryAIResponse) {
   return (payload.output ?? [])
@@ -34,7 +42,7 @@ function extractPrimaryAIText(payload: PrimaryAIResponse) {
     .trim();
 }
 
-async function askPrimaryAI(prompt: string) {
+async function askPrimaryAI(prompt: string, locale: "en-US" | "es-ES" | "pt-BR") {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -44,29 +52,40 @@ async function askPrimaryAI(prompt: string) {
     body: JSON.stringify({
       model: process.env.OPENAI_COACH_MODEL || "gpt-5-mini",
       reasoning: { effort: "low" },
-      instructions: coachSystemPrompt,
+      instructions: coachSystemPrompt(locale),
       input: prompt,
-      max_output_tokens: 650,
+      tools: [{ type: "web_search" }],
+      max_output_tokens: 850,
     }),
-    signal: AbortSignal.timeout(12_000),
+    signal: AbortSignal.timeout(24_000),
   });
   const payload = await response.json() as PrimaryAIResponse;
   if (!response.ok) throw new Error(payload.error?.message || `Primary coach request failed with ${response.status}`);
   return extractPrimaryAIText(payload);
 }
 
-async function askSecondaryAI(prompt: string) {
+async function askSecondaryAI(prompt: string, locale: "en-US" | "es-ES" | "pt-BR") {
   const message = await getSecondaryAIClient().messages.create({
     model: SECONDARY_AI_MODEL,
     max_tokens: 320,
-    system: `${coachSystemPrompt} Act as a second analyst. Give only a brief cross-check that adds one caveat, missing signal, or useful measurement detail. Do not repeat the full answer.`,
+    system: coachSystemPrompt(locale),
     messages: [{ role: "user", content: prompt }],
-  }, { signal: AbortSignal.timeout(30_000) });
+  }, { signal: AbortSignal.timeout(18_000) });
   const textBlock = message.content.find((block) => block.type === "text");
   return textBlock?.type === "text" ? textBlock.text.trim() : "";
 }
 
-function fallbackAnswer(question: string, accountCount: number) {
+function fallbackAnswer(question: string, accountCount: number, locale: "en-US" | "es-ES" | "pt-BR") {
+  if (locale === "es-ES") {
+    return accountCount === 0
+      ? "Abre Conectar cuentas, elige la plataforma y aprueba los permisos de análisis de solo lectura. Cuando termine la sincronización, podré analizar tus datos y crear un plan de crecimiento específico."
+      : "Puedo analizar tus métricas, publicaciones, hashtags y clics para crear un próximo paso medible. Pregunta por un número, una publicación o un objetivo comercial concreto para recibir una recomendación más precisa.";
+  }
+  if (locale === "pt-BR") {
+    return accountCount === 0
+      ? "Abra Conectar contas, escolha a plataforma e aprove as permissões de análise somente leitura. Depois da sincronização, poderei analisar seus dados e criar um plano de crescimento específico."
+      : "Posso analisar suas métricas, publicações, hashtags e cliques para criar um próximo passo mensurável. Pergunte sobre um número, uma publicação ou um objetivo comercial específico para receber uma recomendação mais precisa.";
+  }
   const normalized = question.toLowerCase();
   if (accountCount === 0 || normalized.includes("connect")) {
     return "Open Connect accounts, choose Facebook and Instagram or TikTok, then approve the requested read-only analytics permissions. For Instagram, the profile must be a Business or Creator account linked to a Facebook Page. If a provider is unavailable, GrowthLens will show the exact configuration item that still needs attention.";
@@ -75,6 +94,32 @@ function fallbackAnswer(question: string, accountCount: number) {
     return "Open Metrics and compare views, likes, comments, shares, and engagement rate. Then use Posts to repeat the strongest content format with one controlled change, such as the opening hook or posting time, and compare the next seven days.";
   }
   return "Use Metrics for trends and engagement mix, Posts for content-level performance, Viral Hashtags for current niche research, and Link clicks for traffic intent. Ask about a specific number or post and I will turn it into a testable next step.";
+}
+
+type DailyMetric = { account_id: string; date: string; followers: number | null; reach: number | null; impressions: number | null; engagement_rate: number | null };
+type PostMetric = { likes: number | null; comments: number | null; shares: number | null; saves: number | null; reach: number | null; impressions: number | null };
+
+function summarizeMetrics(metrics: DailyMetric[], posts: PostMetric[]) {
+  const latestByAccount = new Map<string, DailyMetric>();
+  for (const metric of metrics) {
+    if (!latestByAccount.has(metric.account_id)) latestByAccount.set(metric.account_id, metric);
+  }
+  const sum = (values: Array<number | null>) => values.reduce<number>((total, value) => total + (value ?? 0), 0);
+  const latest = [...latestByAccount.values()];
+  const engagements = sum(posts.flatMap((post) => [post.likes, post.comments, post.shares, post.saves]));
+  const exposure = sum(posts.map((post) => post.reach ?? post.impressions));
+  return {
+    latest_followers: sum(latest.map((metric) => metric.followers)),
+    recent_post_count: posts.length,
+    recent_engagements: engagements,
+    recent_exposure: exposure,
+    calculated_recent_engagement_rate: exposure > 0 ? Number(((engagements / exposure) * 100).toFixed(2)) : null,
+    missing_signals: {
+      reach: posts.every((post) => post.reach == null),
+      impressions: posts.every((post) => post.impressions == null),
+      saves: posts.every((post) => post.saves == null),
+    },
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -157,14 +202,19 @@ export async function POST(request: NextRequest) {
   ]);
 
   if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ answer: fallbackAnswer(parsed.data.question, accounts?.length ?? 0) });
+    return NextResponse.json({ answer: fallbackAnswer(parsed.data.question, accounts?.length ?? 0, parsed.data.locale) });
   }
 
   const context = {
     business: customer.business_name,
     plan: customer.plan_tier,
     page: parsed.data.page,
+    page_path: parsed.data.pagePath,
     accounts: accounts ?? [],
+    summary: summarizeMetrics(
+      (metricsResult.data ?? []) as DailyMetric[],
+      (postsResult.data ?? []) as PostMetric[],
+    ),
     recent_metrics: metricsResult.data ?? [],
     recent_posts: postsResult.data ?? [],
     recent_insights: insights ?? [],
@@ -174,25 +224,23 @@ export async function POST(request: NextRequest) {
     .slice(-6)
     .map((message) => ({ ...message, content: message.content.slice(0, 2_000) }));
   const prompt = `CUSTOMER CONTEXT\n${JSON.stringify(context)}\n\nRECENT CONVERSATION\n${JSON.stringify(recentConversation)}\n\nQUESTION\n${parsed.data.question}`;
-  const primaryJob = process.env.OPENAI_API_KEY
-    ? askPrimaryAI(prompt).catch((error) => {
-        console.error("Primary coach request failed", (error as Error).message);
-        return "";
-      })
-    : Promise.resolve("");
-  const secondaryJob = process.env.ANTHROPIC_API_KEY
-    ? askSecondaryAI(prompt).catch((error) => {
-        console.error("Secondary coach request failed", (error as Error).message);
-        return "";
-      })
-    : Promise.resolve("");
-
-  const [primaryAnswer, secondaryAnswer] = await Promise.all([primaryJob, secondaryJob]);
-  const answer = primaryAnswer
-    ? [primaryAnswer, secondaryAnswer].filter(Boolean).join("\n\n")
-    : secondaryAnswer;
+  let answer = "";
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      answer = await askPrimaryAI(prompt, parsed.data.locale);
+    } catch (error) {
+      console.error("Primary coach request failed", (error as Error).message);
+    }
+  }
+  if (!answer && process.env.ANTHROPIC_API_KEY) {
+    try {
+      answer = await askSecondaryAI(prompt, parsed.data.locale);
+    } catch (error) {
+      console.error("Secondary coach request failed", (error as Error).message);
+    }
+  }
 
   return NextResponse.json({
-    answer: answer || fallbackAnswer(parsed.data.question, accounts?.length ?? 0),
+    answer: answer || fallbackAnswer(parsed.data.question, accounts?.length ?? 0, parsed.data.locale),
   });
 }

@@ -10,7 +10,7 @@ export default function DataDeletionPage() {
   return (
     <main className="legal-shell min-h-[100dvh] px-4 py-12 text-white/72 sm:py-16">
       <div className="mx-auto max-w-xl rounded-2xl border border-white/12 bg-[#0d120f]/84 p-6 shadow-[0_28px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:p-9">
-        <Link href="/" className="text-sm font-semibold text-white transition-colors hover:text-[#d9ff6b]">
+        <Link href="/home" className="text-sm font-semibold text-white transition-colors hover:text-[#d9ff6b]">
           GrowthLens
         </Link>
         <p className="mt-10 text-xs font-semibold uppercase tracking-[0.16em] text-[#d9ff6b]">Account privacy</p>
