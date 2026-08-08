@@ -45,7 +45,7 @@ export function HashtagResearchForm({ researchEnabled }: { researchEnabled: bool
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ niche, audience, platform, region }),
-        signal: AbortSignal.timeout(50_000),
+        signal: AbortSignal.timeout(70_000),
       });
       const payload = await response.json() as ResearchResult & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Research could not be completed.");
