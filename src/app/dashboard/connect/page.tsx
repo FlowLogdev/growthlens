@@ -1,5 +1,6 @@
 import { requireCurrentCustomer } from "@/lib/current-customer";
-import { getAccountLimit } from "@/lib/plans";\nimport { syncTikTokAccount } from "./actions";
+import { getAccountLimit } from "@/lib/plans";
+import { syncTikTokAccount } from "./actions";
 
 export default async function ConnectPage({
   searchParams,
