@@ -9,7 +9,7 @@ const requestSchema = z.object({
   page: z.string().trim().max(80).optional(),
   history: z.array(z.object({
     role: z.enum(["assistant", "user"]),
-    content: z.string().trim().min(1).max(1200),
+    content: z.string().trim().min(1).max(6_000),
   })).max(8).optional(),
 });
 
@@ -100,7 +100,18 @@ export async function POST(request: NextRequest) {
 
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Enter a question between 2 and 800 characters." }, { status: 400 });
+    const question = typeof body === "object" && body !== null && "question" in body
+      ? (body as { question?: unknown }).question
+      : undefined;
+    const validQuestion = z.string().trim().min(2).max(800).safeParse(question).success;
+    return NextResponse.json(
+      {
+        error: validQuestion
+          ? "The recent conversation could not be read. Please ask the question again."
+          : "Enter a question between 2 and 800 characters.",
+      },
+      { status: 400 },
+    );
   }
 
   const { data: customer } = await supabase
@@ -159,7 +170,10 @@ export async function POST(request: NextRequest) {
     recent_insights: insights ?? [],
   };
 
-  const prompt = `CUSTOMER CONTEXT\n${JSON.stringify(context)}\n\nRECENT CONVERSATION\n${JSON.stringify(parsed.data.history ?? [])}\n\nQUESTION\n${parsed.data.question}`;
+  const recentConversation = (parsed.data.history ?? [])
+    .slice(-6)
+    .map((message) => ({ ...message, content: message.content.slice(0, 2_000) }));
+  const prompt = `CUSTOMER CONTEXT\n${JSON.stringify(context)}\n\nRECENT CONVERSATION\n${JSON.stringify(recentConversation)}\n\nQUESTION\n${parsed.data.question}`;
   const primaryJob = process.env.OPENAI_API_KEY
     ? askPrimaryAI(prompt).catch((error) => {
         console.error("Primary coach request failed", (error as Error).message);
