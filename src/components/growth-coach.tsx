@@ -64,7 +64,7 @@ export function GrowthCoach({ accountCount, aiEnabled }: { accountCount: number;
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: submitted, page: pageLabel, history: messages.slice(-6) }),
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(35_000),
       });
       const payload = (await response.json()) as { answer?: string; error?: string };
       setMessages((current) => [
@@ -104,7 +104,7 @@ export function GrowthCoach({ accountCount, aiEnabled }: { accountCount: number;
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#d9ff6b]">Growth coach</p>
               <h2 className="mt-1 text-lg font-semibold tracking-[-0.025em] text-white">Ask about {pageLabel}</h2>
-              <p className="mt-1 text-[11px] text-white/38">{aiEnabled ? "ChatGPT leads. Claude cross-checks." : "Guided dashboard help"}</p>
+              <p className="mt-1 text-[11px] text-white/38">{aiEnabled ? "Live dashboard guidance" : "Guided dashboard help"}</p>
             </div>
           </div>
           <button
@@ -132,7 +132,7 @@ export function GrowthCoach({ accountCount, aiEnabled }: { accountCount: number;
         ))}
         {loading && (
           <div className="max-w-[92%] rounded-2xl bg-white/[0.075] px-4 py-3 text-sm text-white/55">
-            ChatGPT is reviewing your data. Claude is checking the recommendation.
+            GrowthLens Bot is reviewing your data and preparing a recommendation.
           </div>
         )}
       </div>
