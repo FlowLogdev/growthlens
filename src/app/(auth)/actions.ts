@@ -56,11 +56,11 @@ export async function signUp(formData: FormData) {
 
   const destination = `/dashboard/billing?plan=${plan}&welcome=1`;
   if (data.session) {
-    redirect(destination);
+    redirect(`${destination}&registration_completed=1`);
   }
 
   redirect(
-    `/login?message=${encodeURIComponent("Check your email to confirm your account, then log in to choose your plan.")}&redirect_to=${encodeURIComponent(destination)}`,
+    `/login?message=${encodeURIComponent("Check your email to confirm your account, then log in to choose your plan.")}&redirect_to=${encodeURIComponent(destination)}&registration_completed=1`,
   );
 }
 
