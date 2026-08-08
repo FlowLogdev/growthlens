@@ -105,7 +105,22 @@ export async function getTikTokUserInfo(accessToken: string) {
 }
 
 export async function listTikTokVideos(accessToken: string, cursor = 0) {
-  const res = await fetch(`${API_BASE}/v2/video/list/`, {
+  const url = new URL(`${API_BASE}/v2/video/list/`);
+  url.searchParams.set(
+    "fields",
+    [
+      "id",
+      "title",
+      "create_time",
+      "share_url",
+      "view_count",
+      "like_count",
+      "comment_count",
+      "share_count",
+    ].join(","),
+  );
+
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -114,15 +129,6 @@ export async function listTikTokVideos(accessToken: string, cursor = 0) {
     body: JSON.stringify({
       max_count: 20,
       cursor,
-      fields: [
-        "id",
-        "title",
-        "create_time",
-        "view_count",
-        "like_count",
-        "comment_count",
-        "share_count",
-      ],
     }),
   });
   if (!res.ok) {
@@ -132,7 +138,13 @@ export async function listTikTokVideos(accessToken: string, cursor = 0) {
 }
 
 export async function queryTikTokVideoInsights(accessToken: string, videoIds: string[]) {
-  const res = await fetch(`${API_BASE}/v2/video/query/`, {
+  const url = new URL(`${API_BASE}/v2/video/query/`);
+  url.searchParams.set(
+    "fields",
+    ["id", "view_count", "like_count", "comment_count", "share_count"].join(","),
+  );
+
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -140,7 +152,6 @@ export async function queryTikTokVideoInsights(accessToken: string, videoIds: st
     },
     body: JSON.stringify({
       filters: { video_ids: videoIds },
-      fields: ["id", "view_count", "like_count", "comment_count", "share_count"],
     }),
   });
   if (!res.ok) {
