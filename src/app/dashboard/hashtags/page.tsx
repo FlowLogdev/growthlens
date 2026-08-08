@@ -1,10 +1,7 @@
 import { HashtagResearchForm } from "@/components/hashtag-research-form";
 
 export default function ViralHashtagsPage() {
-  const configuredProviders = [
-    process.env.OPENAI_API_KEY ? "ChatGPT primary" : null,
-    process.env.ANTHROPIC_API_KEY ? "Claude cross-check" : null,
-  ].filter((provider): provider is string => Boolean(provider));
+  const researchEnabled = Boolean(process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY);
 
   return (
     <div className="space-y-7">
@@ -13,7 +10,7 @@ export default function ViralHashtagsPage() {
         <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">Viral Hashtags</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">Research a current hashtag mix for your niche, audience, and platform. Results include sources and never guarantee virality.</p>
       </header>
-      <HashtagResearchForm configuredProviders={configuredProviders} />
+      <HashtagResearchForm researchEnabled={researchEnabled} />
     </div>
   );
 }
