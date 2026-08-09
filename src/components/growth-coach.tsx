@@ -18,6 +18,7 @@ const PAGE_LABELS: Record<string, string> = {
   "/dashboard/links": "Link clicks",
   "/dashboard/billing": "Billing",
   "/dashboard/settings": "Settings",
+  "/dashboard/documentation": "Documentation",
 };
 
 export function GrowthCoach({ accountCount, aiEnabled }: { accountCount: number; aiEnabled: boolean }) {
@@ -46,6 +47,9 @@ export function GrowthCoach({ accountCount, aiEnabled }: { accountCount: number;
     }
     if (pageLabel === "Viral Hashtags") {
       return ["How should I mix hashtags?", "What makes a hashtag relevant?", "Plan a niche content test"].map(t);
+    }
+    if (pageLabel === "Documentation") {
+      return ["How do I get started?", "How do I connect Instagram?", "Where do I manage billing?"].map(t);
     }
     return ["What should I do next?", "Explain my latest numbers", "How do I improve engagement?"].map(t);
   }, [accountCount, pageLabel, t]);
