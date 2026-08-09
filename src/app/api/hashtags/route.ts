@@ -9,6 +9,7 @@ const requestSchema = z.object({
   audience: z.string().trim().max(160).optional(),
   platform: z.enum(["instagram", "tiktok", "both"]),
   region: z.string().trim().max(80).optional(),
+  locale: z.enum(["en-US", "es-ES", "pt-BR"]).default("en-US"),
 });
 
 export async function POST(request: NextRequest) {

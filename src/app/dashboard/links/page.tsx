@@ -69,7 +69,7 @@ export default async function LinksPage() {
                       <span className="rounded-full border border-white/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/42">{link.source_platform}</span>
                     </div>
                     <p className="mt-2 truncate font-mono text-xs text-[#d9ff6b]">{trackingUrl}</p>
-                    <p className="mt-1 truncate text-xs text-white/32">To: {link.destination_url}</p>
+                    <p className="mt-1 truncate text-xs text-white/32">To: <span data-no-translate>{link.destination_url}</span></p>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">

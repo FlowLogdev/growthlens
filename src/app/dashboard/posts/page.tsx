@@ -99,7 +99,7 @@ export default async function PostsPage() {
                     <p className="font-mono text-xs font-semibold text-[#d9ff6b]">0{index + 1}</p>
                     <p className="text-[11px] text-white/35">{formatDate(post.posted_at)}</p>
                   </div>
-                  <p className="mt-4 line-clamp-3 min-h-15 text-sm font-medium leading-5 text-white/82">{post.caption?.trim() || `${post.content_type || "Post"} content`}</p>
+                  <p data-no-translate={Boolean(post.caption?.trim()) || undefined} className="mt-4 line-clamp-3 min-h-15 text-sm font-medium leading-5 text-white/82">{post.caption?.trim() || `${post.content_type || "Post"} content`}</p>
                   <div className="mt-5 grid grid-cols-2 gap-2 text-xs">
                     <div><p className="text-white/34">Views</p><p className="mt-1 font-mono font-semibold text-white">{compactNumber(value(post.impressions))}</p></div>
                     <div><p className="text-white/34">Engagements</p><p className="mt-1 font-mono font-semibold text-white">{compactNumber(engagementTotal(post))}</p></div>
@@ -152,7 +152,7 @@ export default async function PostsPage() {
                     <span className="capitalize text-white/68">{post.content_type || "Other"}</span>
                     <span className="text-white/35">{formatDate(post.posted_at)}</span>
                   </div>
-                  <p className="mt-3 line-clamp-2 text-sm leading-5 text-white/78">{post.caption?.trim() || "Caption unavailable"}</p>
+                  <p data-no-translate={Boolean(post.caption?.trim()) || undefined} className="mt-3 line-clamp-2 text-sm leading-5 text-white/78">{post.caption?.trim() || "Caption unavailable"}</p>
                   <div className="mt-4 grid grid-cols-3 gap-2 font-mono text-xs text-white/62">
                     <span>{compactNumber(value(post.impressions))} views</span>
                     <span>{compactNumber(value(post.likes))} likes</span>

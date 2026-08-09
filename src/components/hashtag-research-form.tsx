@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { useLocale } from "@/components/locale-provider";
 
 type Hashtag = {
   tag: string;
@@ -23,6 +24,7 @@ const GROUPS: Array<{ key: Hashtag["category"]; label: string; description: stri
 ];
 
 export function HashtagResearchForm({ researchEnabled }: { researchEnabled: boolean }) {
+  const { locale } = useLocale();
   const [niche, setNiche] = useState("");
   const [audience, setAudience] = useState("");
   const [platform, setPlatform] = useState<"instagram" | "tiktok" | "both">("both");
@@ -44,7 +46,7 @@ export function HashtagResearchForm({ researchEnabled }: { researchEnabled: bool
       const response = await fetch("/api/hashtags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ niche, audience, platform, region }),
+        body: JSON.stringify({ niche, audience, platform, region, locale }),
         signal: AbortSignal.timeout(70_000),
       });
       const payload = await response.json() as ResearchResult & { error?: string };

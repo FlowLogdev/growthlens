@@ -160,7 +160,7 @@ export default async function MetricsPage({
                       href={`/dashboard/metrics?account=${encodeURIComponent(account.id)}`}
                       className={`rounded-full border px-3 py-2 text-xs font-semibold ${active ? "border-[#d9ff6b]/45 bg-[#d9ff6b]/12 text-[#d9ff6b]" : "border-white/12 text-white/56"}`}
                     >
-                      {account.account_name ?? account.platform}
+                      <span data-no-translate>{account.account_name ?? account.platform}</span>
                     </Link>
                   );
                 })}

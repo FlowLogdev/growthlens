@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { getSecondaryAIClient, SECONDARY_AI_MODEL } from "@/lib/anthropic/client";
+import type { Locale } from "@/lib/i18n";
 
 const hashtagSchema = z.object({
   tag: z.string().trim().min(2).max(80),
@@ -43,7 +44,14 @@ type ResearchInput = {
   audience?: string;
   platform: "instagram" | "tiktok" | "both";
   region?: string;
+  locale: Locale;
 };
+
+function responseLanguage(locale: Locale) {
+  if (locale === "pt-BR") return "Brazilian Portuguese";
+  if (locale === "es-ES") return "Spanish as used in Spain";
+  return "US English";
+}
 
 const jsonInstructions = `Return only valid JSON with this exact shape:
 {
@@ -149,8 +157,11 @@ Niche: ${input.niche}
 Audience: ${input.audience || "not specified"}
 Platform: ${input.platform}
 Region: ${input.region || "not specified"}
+Response language: ${responseLanguage(input.locale)}
 
 Search the current web. Look for active niche creators, competitor vocabulary, recent topic demand, and platform-relevant discovery patterns. Balance precise niche tags with adjacent growth and broader discovery tags. Do not include banned, misleading, unrelated, or generic spam tags.
+
+Write the summary, hashtag reasons, and content angles in the requested response language. Keep hashtags and source titles in their original form.
 
 ${jsonInstructions}`;
 }

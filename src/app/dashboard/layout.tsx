@@ -34,7 +34,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Link href="/dashboard" aria-label="GrowthLens dashboard" className="inline-flex rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d9ff6b]">
             <BrandMark />
           </Link>
-          <p className="mt-3 truncate text-xs text-white/42">{customer.business_name ?? customer.email}</p>
+          <p data-no-translate className="mt-3 truncate text-xs text-white/42">{customer.business_name ?? customer.email}</p>
           <div className="mt-4"><LanguageSwitcher /></div>
         </div>
         <DashboardNav />
@@ -61,7 +61,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <DashboardNav mobile />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[1120px] p-4 pb-28 sm:p-6 sm:pb-28 lg:p-8 xl:pb-8">{children}</main>
+        <main data-auto-translate className="mx-auto w-full max-w-[1120px] p-4 pb-28 sm:p-6 sm:pb-28 lg:p-8 xl:pb-8">{children}</main>
         </div>
         <GrowthCoach
           accountCount={accountCount ?? 0}

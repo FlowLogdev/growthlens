@@ -36,7 +36,7 @@ export default async function SettingsPage() {
             Save
           </button>
         </form>
-        <p className="mt-4 text-xs text-white/40">Account email: {customer.email}</p>
+        <p className="mt-4 text-xs text-white/40">Account email: <span data-no-translate>{customer.email}</span></p>
       </section>
 
       <section className="rounded-2xl border border-white/11 bg-[#101513]/72 p-5 backdrop-blur-xl sm:p-6">
@@ -51,7 +51,7 @@ export default async function SettingsPage() {
                 className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm"
               >
                 <span className="capitalize text-white/68">
-                  {account.platform} - {account.account_name} ({account.status})
+                  <span data-no-translate>{account.platform} - {account.account_name}</span> ({account.status})
                 </span>
                 <form action={disconnectAccount}>
                   <input type="hidden" name="account_id" value={account.id} />
