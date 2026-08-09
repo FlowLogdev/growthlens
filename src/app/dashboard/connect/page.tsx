@@ -6,6 +6,7 @@ import { syncTikTokAccount } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
   meta_not_configured: "Facebook and Instagram connection is temporarily unavailable while the Meta app credentials are completed.",
+  meta_missing_page_permissions: "Facebook completed login but did not grant the Page permissions GrowthLens needs. The Meta app owner must obtain Advanced Access for pages_show_list and pages_read_engagement. App administrators can test before approval only with a Facebook account assigned an app role.",
   meta_no_pages: "Meta did not return an eligible Facebook Page. In Facebook, choose Edit Settings and allow the Page you manage. Instagram is added automatically only when a Professional Instagram account is linked to that Page.",
   meta_save_failed: "Meta authorized the connection, but GrowthLens could not save the account. Please try again. If it continues, contact support.",
   meta_connection_failed: "GrowthLens could not finish the Meta connection. Please try again and choose Edit Settings to confirm Page access.",

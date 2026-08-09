@@ -71,9 +71,9 @@ export function GrowthCoach({ accountCount, aiEnabled }: { accountCount: number;
           page: pageLabel,
           pagePath: pathname,
           locale,
-          history: messages.slice(-6).map((message) => ({
+          history: messages.slice(-4).map((message) => ({
             ...message,
-            content: message.content.slice(0, 2_000),
+            content: message.content.slice(0, 600),
           })),
         }),
         signal: AbortSignal.timeout(45_000),
