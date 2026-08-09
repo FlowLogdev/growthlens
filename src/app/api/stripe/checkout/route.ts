@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       metadata: { customer_id: customer.id },
     },
     metadata: { customer_id: customer.id, plan_tier: tier },
-    success_url: `${siteUrl}/dashboard/billing?checkout=success`,
+    success_url: `${siteUrl}/api/stripe/checkout/complete?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${siteUrl}/dashboard/billing?checkout=cancelled`,
   });
 

@@ -1,12 +1,18 @@
 import Link from "next/link";
+import { getAccountLimit } from "@/lib/plans";
 import { requireCurrentCustomer } from "@/lib/current-customer";
 
 function formatStatus(value: string | null | undefined) {
   return value ? value.replaceAll("_", " ") : "Not available";
 }
 
-export default async function DashboardOverviewPage() {
+export default async function DashboardOverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ checkout?: string }>;
+}) {
   const { supabase, customer } = await requireCurrentCustomer();
+  const params = await searchParams;
 
   const [{ data: accounts }, { data: latestInsight }, { data: metrics }] = await Promise.all([
     supabase
@@ -51,6 +57,16 @@ export default async function DashboardOverviewPage() {
 
   return (
     <div className="space-y-7">
+      {params.checkout === "success" && (
+        <p className="rounded-xl border border-[#58cc70]/35 bg-[#58cc70]/10 p-4 text-sm text-[#b8f2c2]">
+          Subscription activated. Your {formatStatus(customer.plan_tier)} plan and account allowance are ready.
+        </p>
+      )}
+      {params.checkout === "failed" && (
+        <p className="rounded-xl border border-[#ff806b]/35 bg-[#ff806b]/10 p-4 text-sm text-[#ffb5a8]">
+          We could not confirm the checkout. No plan change was applied. Open Billing to retry or contact support.
+        </p>
+      )}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#d9ff6b]">Performance workspace</p>
@@ -66,7 +82,7 @@ export default async function DashboardOverviewPage() {
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Performance summary">
         {[
-          { label: "Connected", value: String(accounts?.length ?? 0), helper: "social accounts" },
+          { label: "Connected", value: `${accounts?.length ?? 0} / ${getAccountLimit(customer.plan_tier)}`, helper: `${formatStatus(customer.plan_tier)} plan allowance` },
           { label: "Followers", value: totals.followers.toLocaleString(), helper: "latest synced totals" },
           { label: "Reach", value: totals.reach.toLocaleString(), helper: "recent data points" },
           { label: "Engagement", value: `${(averageEngagement * 100).toFixed(1)}%`, helper: "recent average" },
