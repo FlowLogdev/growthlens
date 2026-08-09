@@ -4,7 +4,7 @@ import { getAccountLimit } from "@/lib/plans";
 import { encryptToken } from "@/lib/encryption";
 import { verifyOAuthState } from "@/lib/oauth-state";
 import { isRateLimited } from "@/lib/rate-limit";
-import { exchangeMetaCode, exchangeForLongLivedToken, listPages } from "@/lib/integrations/meta";
+import { discoverMetaPages, exchangeMetaCode, exchangeForLongLivedToken } from "@/lib/integrations/meta";
 
 export async function GET(request: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL!;
@@ -33,7 +33,15 @@ export async function GET(request: NextRequest) {
   try {
     const shortLived = await exchangeMetaCode(code);
     const longLived = await exchangeForLongLivedToken(shortLived.access_token);
-    const pages = await listPages(longLived.access_token);
+    let discovery = await discoverMetaPages(longLived.access_token);
+
+    // Preserve a valid asset selection if Meta's long-lived token exchange
+    // temporarily omits the accounts edge from the exchanged token.
+    if (discovery.pages.length === 0) {
+      const shortLivedDiscovery = await discoverMetaPages(shortLived.access_token);
+      if (shortLivedDiscovery.pages.length > 0) discovery = shortLivedDiscovery;
+    }
+    const pages = discovery.pages;
 
     const supabase = createAdminClient();
     const expiresAt = new Date(Date.now() + longLived.expires_in * 1000).toISOString();
@@ -74,8 +82,11 @@ export async function GET(request: NextRequest) {
     ]);
 
     if (candidates.length === 0) {
+      const missingPagePermission = discovery.missingPermissions.some(
+        (permission) => permission === "pages_show_list" || permission === "pages_read_engagement",
+      );
       return NextResponse.redirect(
-        `${siteUrl}/dashboard/connect?error=meta_no_pages`,
+        `${siteUrl}/dashboard/connect?error=${missingPagePermission ? "meta_missing_page_permissions" : "meta_no_pages"}`,
       );
     }
 

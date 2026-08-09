@@ -3,9 +3,16 @@ import "server-only";
 // Meta Graph API integration — kept isolated from tiktok.ts so App Review
 // delays on one platform never block shipping the other (spec Section 15).
 
-// Keep Meta calls on a supported Graph API version. v19.0 expired on
-// May 21, 2026 and can return incomplete Page data even when OAuth succeeds.
-const GRAPH_VERSION = process.env.META_GRAPH_API_VERSION?.trim() || "v26.0";
+// Keep Meta calls on a supported Graph API version. Ignore stale production
+// overrides instead of silently sending customers through an expired OAuth
+// flow (v19.0 expired on May 21, 2026).
+function getGraphVersion() {
+  const configured = process.env.META_GRAPH_API_VERSION?.trim();
+  const major = configured?.match(/^v(\d+)\.0$/)?.[1];
+  return major && Number(major) >= 20 ? configured! : "v26.0";
+}
+
+const GRAPH_VERSION = getGraphVersion();
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
 export function getMetaOAuthConfiguration() {
@@ -87,24 +94,77 @@ export interface MetaPage {
   instagram_business_account?: { id: string };
 }
 
-export async function listPages(userAccessToken: string): Promise<MetaPage[]> {
+type MetaPermission = {
+  permission: string;
+  status: "granted" | "declined" | "expired" | string;
+};
+
+export type MetaPageDiscovery = {
+  pages: MetaPage[];
+  grantedPermissions: string[];
+  missingPermissions: string[];
+};
+
+async function requestMetaPages(url: URL) {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Meta list pages failed: ${await res.text()}`);
+  }
+  const json = (await res.json()) as { data?: MetaPage[] };
+  return json.data ?? [];
+}
+
+async function listGrantedPermissions(userAccessToken: string) {
+  const url = new URL(`${GRAPH_BASE}/me/permissions`);
+  url.searchParams.set("access_token", userAccessToken);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) return [];
+  const json = (await res.json()) as { data?: MetaPermission[] };
+  return json.data ?? [];
+}
+
+export async function discoverMetaPages(userAccessToken: string): Promise<MetaPageDiscovery> {
   const url = new URL(`${GRAPH_BASE}/me/accounts`);
   url.searchParams.set("fields", "id,name,access_token,instagram_business_account");
   url.searchParams.set("limit", "100");
   url.searchParams.set("access_token", userAccessToken);
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Meta list pages failed: ${await res.text()}`);
+  let pages = await requestMetaPages(url);
+
+  // Some Business Login responses expose the selected assets through the
+  // expanded accounts edge even when /me/accounts returns an empty data array.
+  if (pages.length === 0) {
+    const expandedUrl = new URL(`${GRAPH_BASE}/me`);
+    expandedUrl.searchParams.set(
+      "fields",
+      "accounts.limit(100){id,name,access_token,instagram_business_account}",
+    );
+    expandedUrl.searchParams.set("access_token", userAccessToken);
+    const res = await fetch(expandedUrl, { cache: "no-store" });
+    if (res.ok) {
+      const json = (await res.json()) as { accounts?: { data?: MetaPage[] } };
+      pages = json.accounts?.data ?? [];
+    }
   }
-  const json = (await res.json()) as { data?: MetaPage[] };
-  const pages = json.data ?? [];
+
+  const permissions = await listGrantedPermissions(userAccessToken);
+  const grantedPermissions = permissions
+    .filter((item) => item.status === "granted")
+    .map((item) => item.permission);
+  const requiredPermissions = META_OAUTH_SCOPES.split(",");
+  const missingPermissions = requiredPermissions.filter(
+    (permission) => !grantedPermissions.includes(permission),
+  );
 
   if (pages.length === 0) {
-    console.warn("Meta returned no eligible Pages", { graphVersion: GRAPH_VERSION });
+    console.warn("Meta returned no eligible Pages", {
+      graphVersion: GRAPH_VERSION,
+      grantedPermissions,
+      missingPermissions,
+    });
   }
 
-  return pages;
+  return { pages, grantedPermissions, missingPermissions };
 }
 
 export async function getPageInsights(pageId: string, pageAccessToken: string) {

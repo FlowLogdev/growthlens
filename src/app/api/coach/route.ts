@@ -11,8 +11,8 @@ const requestSchema = z.object({
   locale: z.enum(["en-US", "es-ES", "pt-BR"]).default("en-US"),
   history: z.array(z.object({
     role: z.enum(["assistant", "user"]),
-    content: z.string().trim().min(1).max(6_000),
-  })).max(8).optional(),
+    content: z.string().trim().min(1).max(1_200),
+  })).max(4).optional(),
 });
 
 type PrimaryAIResponse = {
@@ -42,7 +42,11 @@ function extractPrimaryAIText(payload: PrimaryAIResponse) {
     .trim();
 }
 
-async function askPrimaryAI(prompt: string, locale: "en-US" | "es-ES" | "pt-BR") {
+function needsCurrentWebResearch(question: string) {
+  return /\b(current|latest|today|trend|trending|viral|algorithm|rule|policy|eligib|moneti[sz]|program|competitor)\b/i.test(question);
+}
+
+async function askPrimaryAI(prompt: string, locale: "en-US" | "es-ES" | "pt-BR", useWebSearch: boolean) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -54,8 +58,8 @@ async function askPrimaryAI(prompt: string, locale: "en-US" | "es-ES" | "pt-BR")
       reasoning: { effort: "low" },
       instructions: coachSystemPrompt(locale),
       input: prompt,
-      tools: [{ type: "web_search" }],
-      max_output_tokens: 850,
+      ...(useWebSearch ? { tools: [{ type: "web_search" }] } : {}),
+      max_output_tokens: 450,
     }),
     signal: AbortSignal.timeout(24_000),
   });
@@ -67,7 +71,7 @@ async function askPrimaryAI(prompt: string, locale: "en-US" | "es-ES" | "pt-BR")
 async function askSecondaryAI(prompt: string, locale: "en-US" | "es-ES" | "pt-BR") {
   const message = await getSecondaryAIClient().messages.create({
     model: SECONDARY_AI_MODEL,
-    max_tokens: 320,
+    max_tokens: 260,
     system: coachSystemPrompt(locale),
     messages: [{ role: "user", content: prompt }],
   }, { signal: AbortSignal.timeout(18_000) });
@@ -189,7 +193,7 @@ export async function POST(request: NextRequest) {
           .select("account_id, date, followers, reach, impressions, engagement_rate")
           .in("account_id", accountIds)
           .order("date", { ascending: false })
-          .limit(45)
+          .limit(18)
       : Promise.resolve({ data: [] }),
     accountIds.length
       ? supabase
@@ -197,7 +201,7 @@ export async function POST(request: NextRequest) {
           .select("account_id, content_type, posted_at, reach, impressions, likes, comments, shares, saves, watch_time_avg, video_completion_rate")
           .in("account_id", accountIds)
           .order("posted_at", { ascending: false })
-          .limit(25)
+          .limit(12)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -217,17 +221,21 @@ export async function POST(request: NextRequest) {
     ),
     recent_metrics: metricsResult.data ?? [],
     recent_posts: postsResult.data ?? [],
-    recent_insights: insights ?? [],
+    latest_insight: insights?.[0] ?? null,
   };
 
   const recentConversation = (parsed.data.history ?? [])
-    .slice(-6)
-    .map((message) => ({ ...message, content: message.content.slice(0, 2_000) }));
+    .slice(-4)
+    .map((message) => ({ ...message, content: message.content.slice(0, 600) }));
   const prompt = `CUSTOMER CONTEXT\n${JSON.stringify(context)}\n\nRECENT CONVERSATION\n${JSON.stringify(recentConversation)}\n\nQUESTION\n${parsed.data.question}`;
   let answer = "";
   if (process.env.OPENAI_API_KEY) {
     try {
-      answer = await askPrimaryAI(prompt, parsed.data.locale);
+      answer = await askPrimaryAI(
+        prompt,
+        parsed.data.locale,
+        needsCurrentWebResearch(parsed.data.question),
+      );
     } catch (error) {
       console.error("Primary coach request failed", (error as Error).message);
     }
