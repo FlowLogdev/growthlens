@@ -211,6 +211,15 @@ const es: TranslationSet = {
   "Workspace control": "Control del espacio de trabajo",
   "Manage your business identity and connected data sources.": "Administra la identidad de tu empresa y las fuentes de datos conectadas.",
   "No accounts connected.": "No hay cuentas conectadas.",
+  "Refresh account insights": "Actualizar análisis de la cuenta",
+  "Refresh insights": "Actualizar análisis",
+  "Analyzing latest data...": "Analizando los datos más recientes...",
+  "Growth actions refreshed from the latest 30 days of data.": "Las acciones de crecimiento se actualizaron con los datos de los últimos 30 días.",
+  "Growth actions could not be refreshed.": "No se pudieron actualizar las acciones de crecimiento.",
+  "Growth actions could not be refreshed. Please try again.": "No se pudieron actualizar las acciones de crecimiento. Inténtalo de nuevo.",
+  "Pro includes up to four refreshes per day, with a six-hour cooldown per account.": "Pro incluye hasta cuatro actualizaciones al día, con una espera de seis horas por cuenta.",
+  "30-day performance view": "Vista de rendimiento de 30 días",
+  "All accounts": "Todas las cuentas",
 };
 
 const pt: TranslationSet = {
@@ -389,6 +398,15 @@ const pt: TranslationSet = {
   "Workspace control": "Controle do espaço de trabalho",
   "Manage your business identity and connected data sources.": "Gerencie a identidade da sua empresa e as fontes de dados conectadas.",
   "No accounts connected.": "Nenhuma conta conectada.",
+  "Refresh account insights": "Atualizar análises da conta",
+  "Refresh insights": "Atualizar análises",
+  "Analyzing latest data...": "Analisando os dados mais recentes...",
+  "Growth actions refreshed from the latest 30 days of data.": "As ações de crescimento foram atualizadas com os dados dos últimos 30 dias.",
+  "Growth actions could not be refreshed.": "Não foi possível atualizar as ações de crescimento.",
+  "Growth actions could not be refreshed. Please try again.": "Não foi possível atualizar as ações de crescimento. Tente novamente.",
+  "Pro includes up to four refreshes per day, with a six-hour cooldown per account.": "O Pro inclui até quatro atualizações por dia, com intervalo de seis horas por conta.",
+  "30-day performance view": "Visão de desempenho de 30 dias",
+  "All accounts": "Todas as contas",
 };
 
 const TRANSLATIONS: Record<Locale, TranslationSet> = {
