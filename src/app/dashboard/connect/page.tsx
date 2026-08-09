@@ -72,7 +72,7 @@ export default async function ConnectPage({
           {[...byPlatform("facebook"), ...byPlatform("instagram")].length ? (
             <div className="mt-6 space-y-2">
               {[...byPlatform("facebook"), ...byPlatform("instagram")].map((account) => (
-                <p key={account.id} className="rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2 text-sm text-white/68">{account.platform}: {account.account_name} ({account.status})</p>
+                <p key={account.id} className="rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2 text-sm text-white/68"><span data-no-translate>{account.platform}: {account.account_name}</span> ({account.status})</p>
               ))}
             </div>
           ) : metaConfig.ready ? (
@@ -102,7 +102,7 @@ export default async function ConnectPage({
             <div className="mt-6 space-y-2">
               {byPlatform("tiktok").map((account) => (
                 <div key={account.id} className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-3 text-sm text-white/68 sm:flex-row sm:items-center sm:justify-between">
-                  <p>{account.account_name} ({account.status})</p>
+                  <p><span data-no-translate>{account.account_name}</span> ({account.status})</p>
                   <form action={syncTikTokAccount}>
                     <input type="hidden" name="account_id" value={account.id} />
                     <button type="submit" className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#d9ff6b]/35 px-4 text-xs font-bold text-[#d9ff6b] transition-colors hover:bg-[#d9ff6b]/10">Sync data now</button>

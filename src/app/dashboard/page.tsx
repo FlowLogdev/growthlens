@@ -72,7 +72,7 @@ export default async function DashboardOverviewPage({
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#d9ff6b]">Performance workspace</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">Overview</h1>
           <p className="mt-2 text-sm text-white/48">
-            {customer.business_name ?? customer.email}, {formatStatus(customer.plan_tier)} plan, {formatStatus(customer.subscription_status)}
+            <span data-no-translate>{customer.business_name ?? customer.email}</span>, {formatStatus(customer.plan_tier)} plan, {formatStatus(customer.subscription_status)}
           </p>
         </div>
         <Link href="/dashboard/connect" className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#d9ff6b] px-5 text-sm font-bold text-[#172016] transition-transform hover:-translate-y-px">
@@ -120,7 +120,7 @@ export default async function DashboardOverviewPage({
             {accounts.map((account) => (
               <Link key={account.id} href={`/dashboard/${account.platform}`} className="rounded-2xl border border-white/10 bg-[#0d120f]/48 p-4 transition-colors hover:border-[#d9ff6b]/35">
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#d9ff6b]">{account.platform}</p>
-                <p className="mt-2 font-semibold text-white">{account.account_name ?? account.id}</p>
+                <p data-no-translate className="mt-2 font-semibold text-white">{account.account_name ?? account.id}</p>
                 <p className="mt-1 text-xs capitalize text-white/40">{formatStatus(account.status)}</p>
               </Link>
             ))}
