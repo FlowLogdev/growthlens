@@ -13,6 +13,7 @@ export const DASHBOARD_NAV_ITEMS = [
   { href: "/dashboard/links", label: "Link clicks" },
   { href: "/dashboard/billing", label: "Billing" },
   { href: "/dashboard/settings", label: "Settings" },
+  { href: "/dashboard/documentation", label: "Documentation" },
   { href: "/contact", label: "Support" },
 ];
 
