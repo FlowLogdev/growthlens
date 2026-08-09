@@ -1,4 +1,5 @@
 import "server-only";
+import { z } from "zod";
 import { getSecondaryAIClient, SECONDARY_AI_MODEL } from "./client";
 
 export interface DailyMetricSummary {
@@ -30,6 +31,76 @@ export interface AiInsightResult {
   blockers: Array<{ issue: string; evidence: string; severity: "high" | "medium" | "low" }>;
   recommendations: Array<{ action: string; why: string; timeframe: string }>;
 }
+
+const insightSchema = z.object({
+  top_performers: z.object({
+    content_types: z.array(z.string()),
+    posting_times: z.array(z.string()),
+    patterns: z.array(z.string()),
+  }),
+  blockers: z.array(z.object({
+    issue: z.string(),
+    evidence: z.string(),
+    severity: z.enum(["high", "medium", "low"]),
+  })),
+  recommendations: z.array(z.object({
+    action: z.string(),
+    why: z.string(),
+    timeframe: z.string(),
+  })),
+});
+
+const primaryInsightSchema = {
+  type: "object" as const,
+  properties: {
+    top_performers: {
+      type: "object",
+      properties: {
+        content_types: { type: "array", items: { type: "string" } },
+        posting_times: { type: "array", items: { type: "string" } },
+        patterns: { type: "array", items: { type: "string" } },
+      },
+      required: ["content_types", "posting_times", "patterns"],
+      additionalProperties: false,
+    },
+    blockers: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          issue: { type: "string" },
+          evidence: { type: "string" },
+          severity: { type: "string", enum: ["high", "medium", "low"] },
+        },
+        required: ["issue", "evidence", "severity"],
+        additionalProperties: false,
+      },
+    },
+    recommendations: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          action: { type: "string" },
+          why: { type: "string" },
+          timeframe: { type: "string" },
+        },
+        required: ["action", "why", "timeframe"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["top_performers", "blockers", "recommendations"],
+  additionalProperties: false,
+};
+
+type PrimaryInsightResponse = {
+  output?: Array<{
+    type?: string;
+    content?: Array<{ type?: string; text?: string }>;
+  }>;
+  error?: { message?: string };
+};
 
 // Prompt template from spec Section 10 — every recommendation must trace to
 // a pattern in this account's own data, no generic advice.
@@ -71,6 +142,58 @@ Respond with ONLY valid JSON in this exact shape:
 Be specific and reference actual numbers. No generic advice — every recommendation must trace to a pattern in this account's own data.`;
 }
 
+async function generateWithPrimaryAI(prompt: string) {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_INSIGHT_MODEL || process.env.OPENAI_COACH_MODEL || "gpt-5-mini",
+      reasoning: { effort: "low" },
+      input: prompt,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "growth_insight",
+          strict: true,
+          schema: primaryInsightSchema,
+        },
+      },
+      max_output_tokens: 2200,
+    }),
+    signal: AbortSignal.timeout(40_000),
+  });
+  const payload = await response.json() as PrimaryInsightResponse;
+  if (!response.ok) {
+    throw new Error(payload.error?.message || `Primary insight request failed with ${response.status}`);
+  }
+  const text = (payload.output ?? [])
+    .filter((item) => item.type === "message")
+    .flatMap((item) => item.content ?? [])
+    .filter((item) => item.type === "output_text")
+    .map((item) => item.text ?? "")
+    .join("\n")
+    .trim();
+  if (!text) throw new Error("Primary insight response contained no text");
+  return { result: insightSchema.parse(JSON.parse(text)), raw: payload };
+}
+
+async function generateWithSecondaryAI(prompt: string) {
+  const message = await getSecondaryAIClient().messages.create({
+    model: SECONDARY_AI_MODEL,
+    max_tokens: 2048,
+    messages: [{ role: "user", content: prompt }],
+  }, { signal: AbortSignal.timeout(40_000) });
+
+  const textBlock = message.content.find((block) => block.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("Secondary insight response contained no text block");
+  }
+  return { result: insightSchema.parse(JSON.parse(textBlock.text)), raw: message };
+}
+
 export async function generateInsights(params: {
   platform: string;
   niche: string;
@@ -79,19 +202,28 @@ export async function generateInsights(params: {
   topPosts: PostSummary[];
   bottomPosts: PostSummary[];
 }): Promise<{ result: AiInsightResult; raw: unknown }> {
-  const message = await getSecondaryAIClient().messages.create({
-    model: SECONDARY_AI_MODEL,
-    max_tokens: 2048,
-    messages: [{ role: "user", content: buildPrompt(params) }],
-  });
+  const prompt = buildPrompt(params);
+  const errors: string[] = [];
 
-  const textBlock = message.content.find((block) => block.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Insight response contained no text block");
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      return await generateWithPrimaryAI(prompt);
+    } catch (error) {
+      errors.push((error as Error).message);
+      console.error("Primary insight generation failed", (error as Error).message);
+    }
   }
 
-  const result = JSON.parse(textBlock.text) as AiInsightResult;
-  return { result, raw: message };
+  if (process.env.ANTHROPIC_API_KEY) {
+    try {
+      return await generateWithSecondaryAI(prompt);
+    } catch (error) {
+      errors.push((error as Error).message);
+      console.error("Secondary insight generation failed", (error as Error).message);
+    }
+  }
+
+  throw new Error(errors.at(-1) || "No growth insight provider is configured");
 }
 
 export function engagementRate(post: {

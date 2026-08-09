@@ -18,3 +18,7 @@ export function hasProductAccess(customer: SubscriptionAccess, now = Date.now())
 export function hasOnDemandInsights(planTier: string | null) {
   return planTier === "pro" || planTier === "business";
 }
+
+export function hasCrossAccountWorkspace(planTier: string | null) {
+  return planTier === "pro" || planTier === "business";
+}

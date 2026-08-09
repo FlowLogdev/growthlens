@@ -45,6 +45,12 @@ export async function GET(request: NextRequest) {
       fetch(`${siteUrl}/api/insights/generate?account_id=${account.id}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` },
+      }).then(async (response) => {
+        if (!response.ok) {
+          const detail = await response.text();
+          throw new Error(`Insight generation failed for ${account.id}: ${response.status} ${detail}`);
+        }
+        return response;
       }),
     ),
   );
