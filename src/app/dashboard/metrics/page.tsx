@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { InsightRefreshControl } from "@/components/insight-refresh-control";
 import { MetricsCharts, type FormatPoint, type MixPoint, type TrendPoint } from "@/components/metrics-charts";
 import { requireCurrentCustomer } from "@/lib/current-customer";
+import { hasCrossAccountWorkspace, hasOnDemandInsights, hasProductAccess } from "@/lib/entitlements";
 
 type DailyMetric = {
   account_id: string | null;
@@ -31,27 +33,46 @@ function numberValue(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-export default async function MetricsPage() {
+export default async function MetricsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ account?: string }>;
+}) {
   const { supabase, customer } = await requireCurrentCustomer();
+  const params = await searchParams;
   const { data: accounts } = await supabase
     .from("platform_accounts")
     .select("id, platform, account_name, status")
     .eq("customer_id", customer.id)
     .neq("status", "revoked");
 
-  const accountIds = (accounts ?? []).map((account) => account.id);
+  const availableAccounts = accounts ?? [];
+  const hasActiveAccess = hasProductAccess(customer);
+  const canCombineAccounts = hasActiveAccess && hasCrossAccountWorkspace(customer.plan_tier);
+  const requestedAccount = availableAccounts.find((account) => account.id === params.account);
+  const selectedAccounts = canCombineAccounts && (!params.account || params.account === "all")
+    ? availableAccounts
+    : [requestedAccount ?? availableAccounts[0]].filter(Boolean);
+  const accountIds = selectedAccounts.map((account) => account.id);
+  // This authenticated server page is intentionally evaluated per request.
+  // eslint-disable-next-line react-hooks/purity
+  const periodStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
   const [metricsResult, postsResult] = accountIds.length
     ? await Promise.all([
         supabase
           .from("daily_metrics")
           .select("account_id, date, followers, reach, impressions, profile_views, engagement_rate, new_follows")
           .in("account_id", accountIds)
+          .gte("date", periodStart)
           .order("date", { ascending: true })
           .limit(730),
         supabase
           .from("post_performance")
-          .select("content_type, impressions, reach, likes, comments, shares, saves")
+          .select("account_id, content_type, impressions, reach, likes, comments, shares, saves")
           .in("account_id", accountIds)
+          .gte("posted_at", periodStart)
           .order("posted_at", { ascending: false })
           .limit(200),
       ])
@@ -87,7 +108,7 @@ export default async function MetricsPage() {
     current.followers += numberValue(metric.followers);
     trendByDate.set(metric.date, current);
   }
-  const trend = [...trendByDate.values()].slice(-45);
+  const trend = [...trendByDate.values()];
 
   const mix: MixPoint[] = [
     { name: "Likes", value: likes },
@@ -117,10 +138,56 @@ export default async function MetricsPage() {
         <Link href="/dashboard/connect" className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/15 bg-white/[0.055] px-5 text-sm font-semibold text-white transition-colors hover:border-[#d9ff6b]/40">Sync sources</Link>
       </header>
 
+      {!!availableAccounts.length && (
+        <section className="rounded-2xl border border-white/11 bg-[#101513]/72 p-4 backdrop-blur-xl">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/36">30-day performance view</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {canCombineAccounts && (
+                  <Link
+                    href="/dashboard/metrics?account=all"
+                    className={`rounded-full border px-3 py-2 text-xs font-semibold ${!params.account || params.account === "all" ? "border-[#d9ff6b]/45 bg-[#d9ff6b]/12 text-[#d9ff6b]" : "border-white/12 text-white/56"}`}
+                  >
+                    All accounts
+                  </Link>
+                )}
+                {availableAccounts.map((account) => {
+                  const active = params.account === account.id || (!canCombineAccounts && account.id === accountIds[0]);
+                  return (
+                    <Link
+                      key={account.id}
+                      href={`/dashboard/metrics?account=${encodeURIComponent(account.id)}`}
+                      className={`rounded-full border px-3 py-2 text-xs font-semibold ${active ? "border-[#d9ff6b]/45 bg-[#d9ff6b]/12 text-[#d9ff6b]" : "border-white/12 text-white/56"}`}
+                    >
+                      {account.account_name ?? account.platform}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+            {!canCombineAccounts && availableAccounts.length > 1 && (
+              <p className="max-w-md text-xs leading-5 text-white/42">
+                Starter analyzes one account at a time. <Link href="/dashboard/billing?plan=pro" className="font-semibold text-[#d9ff6b]">Upgrade to Pro</Link> to combine every connected account in one workspace.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {hasActiveAccess && hasOnDemandInsights(customer.plan_tier) && (
+        <InsightRefreshControl
+          accounts={availableAccounts.map((account) => ({
+            id: account.id,
+            label: `${account.account_name ?? account.platform} (${account.platform})`,
+          }))}
+        />
+      )}
+
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Metrics summary">
         {[
           { label: "Followers", value: compactNumber(followers), helper: "latest per connected account" },
-          { label: "Video views", value: compactNumber(views), helper: `${posts.length} synced posts` },
+          { label: "Video views", value: compactNumber(views), helper: `${posts.length} posts in 30 days` },
           { label: "Total engagements", value: compactNumber(engagements), helper: "likes, comments, shares, saves" },
           { label: "Engagement rate", value: `${(engagementRate * 100).toFixed(1)}%`, helper: measuredExposure ? "engagements divided by exposure" : "latest available average" },
         ].map((metric) => (
@@ -132,7 +199,7 @@ export default async function MetricsPage() {
         ))}
       </section>
 
-      {!accountIds.length ? (
+      {!availableAccounts.length ? (
         <section className="rounded-2xl border border-white/12 bg-[#101513]/72 p-6 backdrop-blur-xl sm:p-8">
           <h2 className="text-2xl font-semibold tracking-[-0.035em] text-white">Connect one account to open the signal room.</h2>
           <p className="mt-3 max-w-xl text-sm leading-6 text-white/50">GrowthLens never fills charts with demo numbers. Your real metrics appear after a successful platform sync.</p>

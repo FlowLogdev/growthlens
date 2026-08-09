@@ -46,6 +46,12 @@ export async function GET(request: NextRequest) {
       fetch(`${siteUrl}/api/jobs/sync-account?account_id=${account.id}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` },
+      }).then(async (response) => {
+        if (!response.ok) {
+          const detail = await response.text();
+          throw new Error(`Sync failed for ${account.id}: ${response.status} ${detail}`);
+        }
+        return response;
       }),
     ),
   );
