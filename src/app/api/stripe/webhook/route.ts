@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { getStripeClient } from "@/lib/stripe/client";
+import {
+  planTierForSubscription,
+  subscriptionSnapshotFromCheckout,
+} from "@/lib/stripe/subscriptions";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Stripe webhooks can be delivered more than once — every event is recorded
@@ -48,22 +52,17 @@ export async function POST(request: NextRequest) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const customerId = session.metadata?.customer_id;
-        const planTier = session.metadata?.plan_tier;
 
         if (customerId) {
-          const stripeCustomerId =
-            typeof session.customer === "string" ? session.customer : session.customer?.id;
-          const stripeSubscriptionId =
-            typeof session.subscription === "string"
-              ? session.subscription
-              : session.subscription?.id;
+          const snapshot = await subscriptionSnapshotFromCheckout(session);
           const { error } = await supabase
             .from("customers")
             .update({
-              stripe_customer_id: stripeCustomerId,
-              stripe_subscription_id: stripeSubscriptionId,
-              subscription_status: "active",
-              plan_tier: planTier ?? "starter",
+              stripe_customer_id: snapshot.stripeCustomerId,
+              stripe_subscription_id: snapshot.stripeSubscriptionId,
+              subscription_status: snapshot.subscriptionStatus,
+              plan_tier: snapshot.planTier,
+              trial_ends_at: snapshot.trialEndsAt,
             })
             .eq("id", customerId);
 
@@ -80,6 +79,10 @@ export async function POST(request: NextRequest) {
         const statusUpdate = {
           subscription_status:
             event.type === "customer.subscription.deleted" ? "canceled" : subscription.status,
+          plan_tier: planTierForSubscription(subscription),
+          trial_ends_at: subscription.trial_end
+            ? new Date(subscription.trial_end * 1000).toISOString()
+            : null,
           ...(event.type === "customer.subscription.deleted"
             ? { stripe_subscription_id: null }
             : {}),
