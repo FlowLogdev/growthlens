@@ -5,7 +5,7 @@ import { useLocale } from "@/components/locale-provider";
 import { hasTranslation, translate } from "@/lib/i18n";
 
 const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "CODE", "PRE", "TEXTAREA", "OPTION"]);
-const ORIGINAL_TEXT = "glOriginalText";
+const originalTextNodes = new WeakMap<Text, string>();
 
 function translateElement(root: ParentNode, locale: ReturnType<typeof useLocale>["locale"]) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -16,9 +16,9 @@ function translateElement(root: ParentNode, locale: ReturnType<typeof useLocale>
       const raw = node.textContent ?? "";
       const trimmed = raw.trim();
       if (trimmed) {
-        const saved = parent.dataset[ORIGINAL_TEXT];
-        const source = saved ?? trimmed;
-        if (!saved && hasTranslation(locale, trimmed)) parent.dataset[ORIGINAL_TEXT] = trimmed;
+        const textNode = node as Text;
+        const source = originalTextNodes.get(textNode) ?? trimmed;
+        if (!originalTextNodes.has(textNode)) originalTextNodes.set(textNode, source);
         if (hasTranslation(locale, source)) {
           node.textContent = raw.replace(trimmed, translate(locale, source));
         }
