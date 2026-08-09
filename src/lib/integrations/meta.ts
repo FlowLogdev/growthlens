@@ -3,7 +3,9 @@ import "server-only";
 // Meta Graph API integration — kept isolated from tiktok.ts so App Review
 // delays on one platform never block shipping the other (spec Section 15).
 
-const GRAPH_VERSION = "v19.0";
+// Keep Meta calls on a supported Graph API version. v19.0 expired on
+// May 21, 2026 and can return incomplete Page data even when OAuth succeeds.
+const GRAPH_VERSION = process.env.META_GRAPH_API_VERSION?.trim() || "v26.0";
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
 export function getMetaOAuthConfiguration() {
@@ -33,7 +35,7 @@ export function buildMetaAuthUrl(state: string) {
   if (!config.ready) {
     throw new Error("meta_not_configured");
   }
-  const url = new URL("https://www.facebook.com/v19.0/dialog/oauth");
+  const url = new URL(`https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`);
   url.searchParams.set("client_id", config.appId!);
   url.searchParams.set("redirect_uri", config.redirectUri);
   url.searchParams.set("scope", META_OAUTH_SCOPES);
@@ -88,14 +90,21 @@ export interface MetaPage {
 export async function listPages(userAccessToken: string): Promise<MetaPage[]> {
   const url = new URL(`${GRAPH_BASE}/me/accounts`);
   url.searchParams.set("fields", "id,name,access_token,instagram_business_account");
+  url.searchParams.set("limit", "100");
   url.searchParams.set("access_token", userAccessToken);
 
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Meta list pages failed: ${await res.text()}`);
   }
-  const json = (await res.json()) as { data: MetaPage[] };
-  return json.data;
+  const json = (await res.json()) as { data?: MetaPage[] };
+  const pages = json.data ?? [];
+
+  if (pages.length === 0) {
+    console.warn("Meta returned no eligible Pages", { graphVersion: GRAPH_VERSION });
+  }
+
+  return pages;
 }
 
 export async function getPageInsights(pageId: string, pageAccessToken: string) {
