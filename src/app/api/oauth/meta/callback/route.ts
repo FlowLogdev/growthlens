@@ -72,11 +72,19 @@ export async function GET(request: NextRequest) {
           ]
         : []),
     ]);
+
+    if (candidates.length === 0) {
+      return NextResponse.redirect(
+        `${siteUrl}/dashboard/connect?error=meta_no_pages`,
+      );
+    }
+
     const existingKeys = new Set(
       (existingAccounts ?? []).map((account) => `${account.platform}:${account.account_id}`),
     );
     let remaining = Math.max(0, getAccountLimit(customer.plan_tier) - existingKeys.size);
     let skipped = 0;
+    let saved = 0;
 
     for (const candidate of candidates) {
       const key = `${candidate.platform}:${candidate.account_id}`;
@@ -87,7 +95,7 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      await supabase.from("platform_accounts").upsert(
+      const { error: saveError } = await supabase.from("platform_accounts").upsert(
         {
           customer_id: customerId,
           platform: candidate.platform,
@@ -100,18 +108,41 @@ export async function GET(request: NextRequest) {
         { onConflict: "customer_id,platform,account_id" },
       );
 
+      if (saveError) {
+        console.error("Meta account persistence failed", {
+          customerId,
+          platform: candidate.platform,
+          accountId: candidate.account_id,
+          code: saveError.code,
+          message: saveError.message,
+        });
+        throw new Error("meta_save_failed");
+      }
+
+      saved++;
+
       if (!alreadyConnected) {
         existingKeys.add(key);
         remaining--;
       }
     }
 
+    if (saved === 0) {
+      return NextResponse.redirect(
+        `${siteUrl}/dashboard/connect?error=account_limit&limit=1`,
+      );
+    }
+
     return NextResponse.redirect(
-      `${siteUrl}/dashboard/connect?connected=meta${skipped ? "&limit=1" : ""}`,
+      `${siteUrl}/dashboard/connect?connected=meta&connected_count=${saved}${skipped ? "&limit=1" : ""}`,
     );
   } catch (err) {
+    const errorCode = (err as Error).message === "meta_save_failed"
+      ? "meta_save_failed"
+      : "meta_connection_failed";
+    console.error("Meta OAuth callback failed", err);
     return NextResponse.redirect(
-      `${siteUrl}/dashboard/connect?error=${encodeURIComponent((err as Error).message)}`,
+      `${siteUrl}/dashboard/connect?error=${errorCode}`,
     );
   }
 }

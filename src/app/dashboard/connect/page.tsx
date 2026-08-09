@@ -6,6 +6,10 @@ import { syncTikTokAccount } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
   meta_not_configured: "Facebook and Instagram connection is temporarily unavailable while the Meta app credentials are completed.",
+  meta_no_pages: "Meta did not return an eligible Facebook Page. In Facebook, choose Edit Settings and allow the Page you manage. Instagram is added automatically only when a Professional Instagram account is linked to that Page.",
+  meta_save_failed: "Meta authorized the connection, but GrowthLens could not save the account. Please try again. If it continues, contact support.",
+  meta_connection_failed: "GrowthLens could not finish the Meta connection. Please try again and choose Edit Settings to confirm Page access.",
+  account_limit: "Your plan has reached its connected-account limit.",
   tiktok_not_configured: "TikTok connection is temporarily unavailable while the TikTok app credentials are completed.",
   access_denied: "The connection was canceled before permission was granted.",
 };
@@ -13,9 +17,9 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function ConnectPage({
   searchParams,
 }: {
-  searchParams: Promise<{ connected?: string; error?: string; limit?: string; sync?: string }>;
+  searchParams: Promise<{ connected?: string; connected_count?: string; error?: string; limit?: string; sync?: string }>;
 }) {
-  const { connected, error, limit, sync } = await searchParams;
+  const { connected, connected_count: connectedCount, error, limit, sync } = await searchParams;
   const { supabase, customer } = await requireCurrentCustomer();
   const metaConfig = getMetaOAuthConfiguration();
   const tiktokConfig = getTikTokOAuthConfiguration();
@@ -36,7 +40,7 @@ export default async function ConnectPage({
         <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">Choose a platform, approve analytics access, and return to GrowthLens. We request performance data only.</p>
       </header>
 
-      {connected && <p className="rounded-2xl border border-[#7be58c]/28 bg-[#7be58c]/10 p-4 text-sm text-[#baf4c3]">Connected {connected} successfully.</p>}
+      {connected && <p className="rounded-2xl border border-[#7be58c]/28 bg-[#7be58c]/10 p-4 text-sm text-[#baf4c3]">Connected {connectedCount ?? ""} {connected} account{connectedCount === "1" ? "" : "s"} successfully.</p>}
       {sync === "complete" && <p className="rounded-2xl border border-[#7be58c]/28 bg-[#7be58c]/10 p-4 text-sm text-[#baf4c3]">TikTok data synced successfully. Your latest profile and video metrics are now available.</p>}
       {sync === "failed" && <p className="rounded-2xl border border-[#d9ff6b]/25 bg-[#d9ff6b]/10 p-4 text-sm text-[#e8ffad]">TikTok is connected, but its first data sync did not finish. GrowthLens will retry automatically on the next scheduled sync.</p>}
       {error && <p className="rounded-2xl border border-[#ff7d66]/30 bg-[#ff7d66]/10 p-4 text-sm text-[#ffc1b5]">{ERROR_MESSAGES[error] ?? error}</p>}
@@ -59,6 +63,7 @@ export default async function ConnectPage({
             </span>
           </div>
           <p className="mt-4 text-sm leading-6 text-white/48">Connect a Facebook Page and its linked Instagram Business or Creator account.</p>
+          <p className="mt-3 rounded-xl border border-[#67c7f2]/15 bg-[#67c7f2]/[0.06] p-3 text-xs leading-5 text-white/58">Instagram does not use a separate login here. Choose <strong className="text-white/78">Edit Settings</strong> in Facebook, allow the Page you manage, and GrowthLens will add its linked Professional Instagram account automatically.</p>
           <ol className="mt-5 space-y-2 text-xs leading-5 text-white/46">
             <li>1. Sign in to the Facebook profile that manages the Page.</li>
             <li>2. Select the Page and linked Instagram account.</li>
@@ -71,7 +76,7 @@ export default async function ConnectPage({
               ))}
             </div>
           ) : metaConfig.ready ? (
-            <a href="/api/oauth/meta" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-[#d9ff6b] px-5 text-sm font-bold text-[#172016] transition-transform hover:-translate-y-px">Connect Meta</a>
+            <a href="/api/oauth/meta" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-[#d9ff6b] px-5 text-sm font-bold text-[#172016] transition-transform hover:-translate-y-px">Connect Facebook &amp; linked Instagram</a>
           ) : (
             <div className="mt-6 rounded-xl border border-[#ff7d66]/20 bg-[#ff7d66]/[0.07] p-3 text-xs leading-5 text-[#ffc1b5]">The app owner must add META_APP_ID and META_APP_SECRET in production. The callback URL is generated automatically.</div>
           )}
