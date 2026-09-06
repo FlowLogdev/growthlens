@@ -9,6 +9,8 @@ import { discoverMetaPages, exchangeMetaCode, exchangeForLongLivedToken } from "
 export async function GET(request: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL!;
   const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+  const requestId = request.headers.get("x-vercel-id") ?? crypto.randomUUID();
+  const startedAt = Date.now();
 
   if (isRateLimited(`meta-callback:${ip}`)) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
@@ -42,6 +44,15 @@ export async function GET(request: NextRequest) {
       if (shortLivedDiscovery.pages.length > 0) discovery = shortLivedDiscovery;
     }
     const pages = discovery.pages;
+
+    console.info("Meta OAuth Page discovery completed", {
+      requestId,
+      pageCount: pages.length,
+      granularPageCount: discovery.granularPageIds.length,
+      grantedPermissions: discovery.grantedPermissions,
+      missingPermissions: discovery.missingPermissions,
+      durationMs: Date.now() - startedAt,
+    });
 
     const supabase = createAdminClient();
     const expiresAt = new Date(Date.now() + longLived.expires_in * 1000).toISOString();
@@ -151,7 +162,12 @@ export async function GET(request: NextRequest) {
     const errorCode = (err as Error).message === "meta_save_failed"
       ? "meta_save_failed"
       : "meta_connection_failed";
-    console.error("Meta OAuth callback failed", err);
+    console.error("Meta OAuth callback failed", {
+      requestId,
+      errorCode,
+      message: err instanceof Error ? err.message : "Unknown error",
+      durationMs: Date.now() - startedAt,
+    });
     return NextResponse.redirect(
       `${siteUrl}/dashboard/connect?error=${errorCode}`,
     );

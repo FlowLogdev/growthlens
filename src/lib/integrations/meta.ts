@@ -103,6 +103,7 @@ export type MetaPageDiscovery = {
   pages: MetaPage[];
   grantedPermissions: string[];
   missingPermissions: string[];
+  granularPageIds: string[];
 };
 
 async function requestMetaPages(url: URL) {
@@ -121,6 +122,48 @@ async function listGrantedPermissions(userAccessToken: string) {
   if (!res.ok) return [];
   const json = (await res.json()) as { data?: MetaPermission[] };
   return json.data ?? [];
+}
+
+type MetaGranularScope = {
+  scope: string;
+  target_ids?: string[];
+};
+
+async function listGranularPageIds(userAccessToken: string) {
+  const config = getMetaOAuthConfiguration();
+  if (!config.ready) return [];
+
+  const url = new URL(`${GRAPH_BASE}/debug_token`);
+  url.searchParams.set("input_token", userAccessToken);
+  url.searchParams.set("access_token", `${config.appId}|${config.appSecret}`);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) return [];
+
+  const json = (await res.json()) as {
+    data?: { granular_scopes?: MetaGranularScope[] };
+  };
+  const pageScopes = new Set(["pages_show_list", "pages_read_engagement"]);
+  return Array.from(
+    new Set(
+      (json.data?.granular_scopes ?? [])
+        .filter((item) => pageScopes.has(item.scope))
+        .flatMap((item) => item.target_ids ?? []),
+    ),
+  );
+}
+
+async function getSelectedPagesById(pageIds: string[], userAccessToken: string) {
+  const results = await Promise.all(
+    pageIds.map(async (pageId) => {
+      const url = new URL(`${GRAPH_BASE}/${encodeURIComponent(pageId)}`);
+      url.searchParams.set("fields", "id,name,access_token,instagram_business_account");
+      url.searchParams.set("access_token", userAccessToken);
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) return null;
+      return (await res.json()) as MetaPage;
+    }),
+  );
+  return results.filter((page): page is MetaPage => Boolean(page?.id && page?.access_token));
 }
 
 export async function discoverMetaPages(userAccessToken: string): Promise<MetaPageDiscovery> {
@@ -147,6 +190,16 @@ export async function discoverMetaPages(userAccessToken: string): Promise<MetaPa
     }
   }
 
+  // Meta's granular asset selection can contain the selected Page IDs even
+  // when both accounts edges are empty. Resolve only those explicitly selected
+  // IDs so the fallback cannot discover unrelated business assets.
+  const granularPageIds = pages.length === 0
+    ? await listGranularPageIds(userAccessToken)
+    : [];
+  if (pages.length === 0 && granularPageIds.length > 0) {
+    pages = await getSelectedPagesById(granularPageIds, userAccessToken);
+  }
+
   const permissions = await listGrantedPermissions(userAccessToken);
   const grantedPermissions = permissions
     .filter((item) => item.status === "granted")
@@ -159,12 +212,13 @@ export async function discoverMetaPages(userAccessToken: string): Promise<MetaPa
   if (pages.length === 0) {
     console.warn("Meta returned no eligible Pages", {
       graphVersion: GRAPH_VERSION,
+      granularPageCount: granularPageIds.length,
       grantedPermissions,
       missingPermissions,
     });
   }
 
-  return { pages, grantedPermissions, missingPermissions };
+  return { pages, grantedPermissions, missingPermissions, granularPageIds };
 }
 
 export async function getPageInsights(pageId: string, pageAccessToken: string) {
