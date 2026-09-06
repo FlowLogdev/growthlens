@@ -147,7 +147,7 @@ export default function DocumentationPage() {
               { term: "Performance trend", description: "Daily synchronized views, reach, and follower levels. A flat line can mean no new provider data was returned for that day." },
               { term: "Engagement mix", description: "A breakdown of likes, comments, shares, and saves. Shares and saves often show stronger intent than a passive like." },
               { term: "Content format comparison", description: "Views and engagements grouped by post type so you can compare formats such as video or image." },
-              { term: "Refresh insights", description: "Pro customers can request an on-demand analysis refresh. A cooldown and daily limit protect the workspace from duplicate requests." },
+              { term: "Refresh insights", description: "Pro customers can request up to four on-demand refreshes in a rolling 24-hour period. Each request first synchronizes the selected social account, then regenerates the analysis from the newest available data." },
             ]} />
             <div className="mt-5"><Tip>Starter customers analyze one account at a time. Pro customers can use the cross-account view. Compare similar periods and formats before deciding that one post caused a change.</Tip></div>
           </GuideSection>

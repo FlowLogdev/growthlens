@@ -75,7 +75,7 @@ export function InsightRefreshControl({ accounts }: { accounts: AccountOption[] 
         </button>
       </div>
       <p className="mt-2 text-[11px] leading-4 text-white/38">
-        {t("Pro includes up to four refreshes per day, with a six-hour cooldown per account.")}
+        {t("Pro includes up to four on-demand refreshes in a rolling 24-hour period.")}
       </p>
       {message && (
         <p aria-live="polite" className={`mt-3 text-xs ${isError ? "text-[#ff9e8b]" : "text-[#d9ff6b]"}`}>

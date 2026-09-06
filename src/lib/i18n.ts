@@ -247,7 +247,7 @@ const es: TranslationSet = {
   "Growth actions refreshed from the latest 30 days of data.": "Las acciones de crecimiento se actualizaron con los datos de los últimos 30 días.",
   "Growth actions could not be refreshed.": "No se pudieron actualizar las acciones de crecimiento.",
   "Growth actions could not be refreshed. Please try again.": "No se pudieron actualizar las acciones de crecimiento. Inténtalo de nuevo.",
-  "Pro includes up to four refreshes per day, with a six-hour cooldown per account.": "Pro incluye hasta cuatro actualizaciones al día, con una espera de seis horas por cuenta.",
+  "Pro includes up to four on-demand refreshes in a rolling 24-hour period.": "Pro incluye hasta cuatro actualizaciones bajo demanda en un período móvil de 24 horas.",
   "30-day performance view": "Vista de rendimiento de 30 días",
   "All accounts": "Todas las cuentas",
 };
@@ -464,7 +464,7 @@ const pt: TranslationSet = {
   "Growth actions refreshed from the latest 30 days of data.": "As ações de crescimento foram atualizadas com os dados dos últimos 30 dias.",
   "Growth actions could not be refreshed.": "Não foi possível atualizar as ações de crescimento.",
   "Growth actions could not be refreshed. Please try again.": "Não foi possível atualizar as ações de crescimento. Tente novamente.",
-  "Pro includes up to four refreshes per day, with a six-hour cooldown per account.": "O Pro inclui até quatro atualizações por dia, com intervalo de seis horas por conta.",
+  "Pro includes up to four on-demand refreshes in a rolling 24-hour period.": "O Pro inclui até quatro atualizações sob demanda em um período móvel de 24 horas.",
   "30-day performance view": "Visão de desempenho de 30 dias",
   "All accounts": "Todas as contas",
 };

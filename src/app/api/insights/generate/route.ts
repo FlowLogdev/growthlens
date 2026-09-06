@@ -6,7 +6,6 @@ import { hasOnDemandInsights, hasProductAccess } from "@/lib/entitlements";
 import { engagementRate, generateInsights, type PostSummary } from "@/lib/anthropic/analyze";
 
 const PERIOD_DAYS = 30;
-const ON_DEMAND_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 
 // Runs per customer, per account (spec Section 10), invoked either by the
 // weekly cron fan-out or on-demand from the dashboard's "Refresh insights"
@@ -74,26 +73,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: latestInsight } = await supabase
-      .from("ai_insights")
-      .select("generated_at")
-      .eq("account_id", account.id)
-      .order("generated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const generatedAt = latestInsight?.generated_at
-      ? new Date(latestInsight.generated_at).getTime()
-      : 0;
-    const elapsed = Date.now() - generatedAt;
-
-    if (generatedAt && elapsed < ON_DEMAND_COOLDOWN_MS) {
+    // An on-demand refresh must first collect the newest provider data. The
+    // previous implementation only regenerated AI output from stale rows.
+    const syncResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_SITE_URL}/api/jobs/sync-account?account_id=${encodeURIComponent(account.id)}`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` },
+        cache: "no-store",
+      },
+    );
+    if (!syncResponse.ok) {
+      const detail = await syncResponse.text();
+      console.error("On-demand source sync failed", {
+        accountId: account.id,
+        platform: account.platform,
+        status: syncResponse.status,
+        detail,
+      });
       return NextResponse.json(
-        {
-          error: "Insights were refreshed recently. Try again after the 6-hour refresh window.",
-          retry_after_seconds: Math.ceil((ON_DEMAND_COOLDOWN_MS - elapsed) / 1000),
-        },
-        { status: 429 },
+        { error: "The connected account could not be synced. Please try again." },
+        { status: 502 },
       );
     }
   }
