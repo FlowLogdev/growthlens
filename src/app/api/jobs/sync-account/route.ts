@@ -4,9 +4,11 @@ import { decryptToken } from "@/lib/encryption";
 import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 import {
   getInstagramInsights,
+  getInstagramProfile,
   listInstagramMedia,
   getMediaInsights,
   getPageInsights,
+  getPageProfile,
 } from "@/lib/integrations/meta";
 import { syncTikTokAccountData } from "@/lib/integrations/sync-tiktok";
 
@@ -39,7 +41,10 @@ export async function POST(request: NextRequest) {
 
   try {
     if (account.platform === "instagram") {
-      const insights = await getInstagramInsights(account.account_id, accessToken);
+      const [insights, profile] = await Promise.all([
+        getInstagramInsights(account.account_id, accessToken),
+        getInstagramProfile(account.account_id, accessToken),
+      ]);
       const metricValue = (name: string) =>
         insights?.data?.find((m: { name: string }) => m.name === name)?.values?.at(-1)?.value ??
         null;
@@ -52,7 +57,7 @@ export async function POST(request: NextRequest) {
           reach: metricValue("reach"),
           impressions: metricValue("views"),
           profile_views: metricValue("profile_views"),
-          followers: metricValue("follower_count"),
+          followers: profile.followers_count ?? metricValue("follower_count"),
         },
         { onConflict: "account_id,date" },
       );
@@ -97,7 +102,10 @@ export async function POST(request: NextRequest) {
         );
       }
     } else if (account.platform === "facebook") {
-      const insights = await getPageInsights(account.account_id, accessToken);
+      const [insights, profile] = await Promise.all([
+        getPageInsights(account.account_id, accessToken),
+        getPageProfile(account.account_id, accessToken),
+      ]);
       const metricValue = (name: string) =>
         insights?.data?.find((m: { name: string }) => m.name === name)?.values?.at(-1)?.value ??
         null;
@@ -109,7 +117,7 @@ export async function POST(request: NextRequest) {
           date: today,
           impressions: metricValue("page_media_view"),
           reach: metricValue("page_total_media_view_unique"),
-          followers: metricValue("page_follows"),
+          followers: profile.followers_count ?? profile.fan_count ?? metricValue("page_follows"),
           engagement_rate: metricValue("page_media_view")
             ? (metricValue("page_post_engagements") ?? 0) / metricValue("page_media_view")!
             : null,

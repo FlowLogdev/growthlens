@@ -253,6 +253,17 @@ export async function getPageInsights(pageId: string, pageAccessToken: string) {
   ]);
 }
 
+export async function getPageProfile(pageId: string, pageAccessToken: string) {
+  const url = new URL(`${GRAPH_BASE}/${pageId}`);
+  url.searchParams.set("fields", "followers_count,fan_count");
+  url.searchParams.set("access_token", pageAccessToken);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Meta Page profile failed: ${await res.text()}`);
+  }
+  return res.json() as Promise<{ followers_count?: number; fan_count?: number }>;
+}
+
 export async function getInstagramInsights(igBusinessId: string, accessToken: string) {
   return getAvailableInsights(igBusinessId, accessToken, [
     "reach",
@@ -260,6 +271,21 @@ export async function getInstagramInsights(igBusinessId: string, accessToken: st
     "profile_views",
     "follower_count",
   ]);
+}
+
+export async function getInstagramProfile(igBusinessId: string, accessToken: string) {
+  const url = new URL(`${GRAPH_BASE}/${igBusinessId}`);
+  url.searchParams.set("fields", "followers_count,media_count,username");
+  url.searchParams.set("access_token", accessToken);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Instagram profile failed: ${await res.text()}`);
+  }
+  return res.json() as Promise<{
+    followers_count?: number;
+    media_count?: number;
+    username?: string;
+  }>;
 }
 
 export async function listInstagramMedia(igBusinessId: string, accessToken: string) {
