@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
           account_id: account.id,
           date: today,
           reach: metricValue("reach"),
-          impressions: metricValue("impressions"),
+          impressions: metricValue("views"),
           profile_views: metricValue("profile_views"),
           followers: metricValue("follower_count"),
         },
@@ -59,7 +59,20 @@ export async function POST(request: NextRequest) {
 
       const media = await listInstagramMedia(account.account_id, accessToken);
       for (const item of media?.data ?? []) {
-        const mediaInsights = await getMediaInsights(item.id, accessToken);
+        let mediaInsights: { data?: Array<{ name: string; values?: Array<{ value?: number }> }> } = {};
+        try {
+          mediaInsights = await getMediaInsights(item.id, accessToken);
+        } catch (insightError) {
+          // Meta does not expose every insight for every media type. Preserve
+          // profile metrics and public post counts instead of failing the
+          // entire account sync because one post rejects one metric.
+          console.warn("Instagram media insights unavailable", {
+            accountId: account.id,
+            mediaId: item.id,
+            mediaType: item.media_type,
+            message: insightError instanceof Error ? insightError.message : "Unknown error",
+          });
+        }
         const value = (name: string) =>
           mediaInsights?.data?.find((m: { name: string }) => m.name === name)?.values?.[0]
             ?.value ?? null;
@@ -74,9 +87,9 @@ export async function POST(request: NextRequest) {
             caption: item.caption,
             permalink: item.permalink,
             reach: value("reach"),
-            impressions: value("impressions"),
-            likes: value("likes"),
-            comments: value("comments"),
+            impressions: value("views"),
+            likes: item.like_count ?? null,
+            comments: item.comments_count ?? null,
             shares: value("shares"),
             saves: value("saved"),
           },
@@ -94,8 +107,12 @@ export async function POST(request: NextRequest) {
           customer_id: account.customer_id,
           account_id: account.id,
           date: today,
-          impressions: metricValue("page_impressions"),
-          followers: metricValue("page_fans"),
+          impressions: metricValue("page_media_view"),
+          reach: metricValue("page_total_media_view_unique"),
+          followers: metricValue("page_follows"),
+          engagement_rate: metricValue("page_media_view")
+            ? (metricValue("page_post_engagements") ?? 0) / metricValue("page_media_view")!
+            : null,
         },
         { onConflict: "account_id,date" },
       );

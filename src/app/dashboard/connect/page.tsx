@@ -2,7 +2,7 @@ import { requireCurrentCustomer } from "@/lib/current-customer";
 import { getAccountLimit } from "@/lib/plans";
 import { getMetaOAuthConfiguration } from "@/lib/integrations/meta";
 import { getTikTokOAuthConfiguration } from "@/lib/integrations/tiktok";
-import { syncTikTokAccount } from "./actions";
+import { syncMetaAccount, syncTikTokAccount } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
   meta_not_configured: "Facebook and Instagram connection is temporarily unavailable while the Meta app credentials are completed.",
@@ -44,6 +44,8 @@ export default async function ConnectPage({
       {connected && <p className="rounded-2xl border border-[#7be58c]/28 bg-[#7be58c]/10 p-4 text-sm text-[#baf4c3]">Connected {connectedCount ?? ""} {connected} account{connectedCount === "1" ? "" : "s"} successfully.</p>}
       {sync === "complete" && <p className="rounded-2xl border border-[#7be58c]/28 bg-[#7be58c]/10 p-4 text-sm text-[#baf4c3]">TikTok data synced successfully. Your latest profile and video metrics are now available.</p>}
       {sync === "failed" && <p className="rounded-2xl border border-[#d9ff6b]/25 bg-[#d9ff6b]/10 p-4 text-sm text-[#e8ffad]">TikTok is connected, but its first data sync did not finish. GrowthLens will retry automatically on the next scheduled sync.</p>}
+      {sync === "meta_complete" && <p className="rounded-2xl border border-[#7be58c]/28 bg-[#7be58c]/10 p-4 text-sm text-[#baf4c3]">Meta data synced successfully. Open Overview, Metrics, or Posts to see the latest available Facebook or Instagram data.</p>}
+      {sync === "meta_failed" && <p className="rounded-2xl border border-[#d9ff6b]/25 bg-[#d9ff6b]/10 p-4 text-sm text-[#e8ffad]">This Meta account is connected, but Meta did not return usable analytics for this sync. GrowthLens will retry automatically.</p>}
       {error && <p className="rounded-2xl border border-[#ff7d66]/30 bg-[#ff7d66]/10 p-4 text-sm text-[#ffc1b5]">{ERROR_MESSAGES[error] ?? error}</p>}
       {limit && <p className="rounded-2xl border border-[#d9ff6b]/25 bg-[#d9ff6b]/10 p-4 text-sm text-[#e8ffad]">Available accounts were connected up to this plan&apos;s {accountLimit}-account limit.</p>}
 
@@ -73,7 +75,13 @@ export default async function ConnectPage({
           {[...byPlatform("facebook"), ...byPlatform("instagram")].length ? (
             <div className="mt-6 space-y-2">
               {[...byPlatform("facebook"), ...byPlatform("instagram")].map((account) => (
-                <p key={account.id} className="rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2 text-sm text-white/68"><span data-no-translate>{account.platform}: {account.account_name}</span> ({account.status})</p>
+                <div key={account.id} className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-3 text-sm text-white/68 sm:flex-row sm:items-center sm:justify-between">
+                  <p><span data-no-translate>{account.platform}: {account.account_name}</span> ({account.status})</p>
+                  <form action={syncMetaAccount}>
+                    <input type="hidden" name="account_id" value={account.id} />
+                    <button type="submit" className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#d9ff6b]/35 px-4 text-xs font-bold text-[#d9ff6b] transition-colors hover:bg-[#d9ff6b]/10">Sync data now</button>
+                  </form>
+                </div>
               ))}
             </div>
           ) : metaConfig.ready ? (

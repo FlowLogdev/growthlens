@@ -221,34 +221,53 @@ export async function discoverMetaPages(userAccessToken: string): Promise<MetaPa
   return { pages, grantedPermissions, missingPermissions, granularPageIds };
 }
 
-export async function getPageInsights(pageId: string, pageAccessToken: string) {
-  const url = new URL(`${GRAPH_BASE}/${pageId}/insights`);
-  url.searchParams.set("metric", "page_impressions,page_engaged_users,page_fans");
-  url.searchParams.set("access_token", pageAccessToken);
+async function getAvailableInsights(
+  resourceId: string,
+  accessToken: string,
+  metrics: string[],
+  period = "day",
+) {
+  type InsightValue = { value?: number; end_time?: string };
+  type InsightMetric = { name: string; values?: InsightValue[] };
+  const results = await Promise.all(
+    metrics.map(async (metric) => {
+      const url = new URL(`${GRAPH_BASE}/${resourceId}/insights`);
+      url.searchParams.set("metric", metric);
+      url.searchParams.set("period", period);
+      url.searchParams.set("access_token", accessToken);
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) return [];
+      const json = (await res.json()) as { data?: InsightMetric[] };
+      return json.data ?? [];
+    }),
+  );
+  return { data: results.flat() };
+}
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Meta page insights failed: ${await res.text()}`);
-  }
-  return res.json();
+export async function getPageInsights(pageId: string, pageAccessToken: string) {
+  return getAvailableInsights(pageId, pageAccessToken, [
+    "page_media_view",
+    "page_total_media_view_unique",
+    "page_post_engagements",
+    "page_follows",
+  ]);
 }
 
 export async function getInstagramInsights(igBusinessId: string, accessToken: string) {
-  const url = new URL(`${GRAPH_BASE}/${igBusinessId}/insights`);
-  url.searchParams.set("metric", "reach,impressions,profile_views,follower_count");
-  url.searchParams.set("period", "day");
-  url.searchParams.set("access_token", accessToken);
-
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Instagram insights failed: ${await res.text()}`);
-  }
-  return res.json();
+  return getAvailableInsights(igBusinessId, accessToken, [
+    "reach",
+    "views",
+    "profile_views",
+    "follower_count",
+  ]);
 }
 
 export async function listInstagramMedia(igBusinessId: string, accessToken: string) {
   const url = new URL(`${GRAPH_BASE}/${igBusinessId}/media`);
-  url.searchParams.set("fields", "id,caption,media_type,timestamp,permalink");
+  url.searchParams.set(
+    "fields",
+    "id,caption,media_type,timestamp,permalink,like_count,comments_count",
+  );
   url.searchParams.set("limit", "50");
   url.searchParams.set("access_token", accessToken);
 
@@ -261,7 +280,7 @@ export async function listInstagramMedia(igBusinessId: string, accessToken: stri
 
 export async function getMediaInsights(mediaId: string, accessToken: string) {
   const url = new URL(`${GRAPH_BASE}/${mediaId}/insights`);
-  url.searchParams.set("metric", "reach,impressions,likes,comments,saved,shares,video_views");
+  url.searchParams.set("metric", "reach,views,saved,shares,total_interactions");
   url.searchParams.set("access_token", accessToken);
 
   const res = await fetch(url);
