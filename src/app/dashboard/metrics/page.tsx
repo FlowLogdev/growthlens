@@ -85,7 +85,11 @@ export default async function MetricsPage({
     if (metric.account_id) latestByAccount.set(metric.account_id, metric);
   }
 
-  const followers = [...latestByAccount.values()].reduce((sum, metric) => sum + numberValue(metric.followers), 0);
+  const followerValues = [...latestByAccount.values()]
+    .map((metric) => metric.followers)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const followers = followerValues.reduce((sum, value) => sum + value, 0);
+  const followersAvailable = followerValues.length > 0;
   const views = posts.reduce((sum, post) => sum + numberValue(post.impressions), 0);
   const reach = posts.reduce((sum, post) => sum + numberValue(post.reach), 0);
   const likes = posts.reduce((sum, post) => sum + numberValue(post.likes), 0);
@@ -186,7 +190,7 @@ export default async function MetricsPage({
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Metrics summary">
         {[
-          { label: "Followers", value: compactNumber(followers), helper: "latest per connected account" },
+          { label: "Followers", value: followersAvailable ? compactNumber(followers) : "Not available", helper: followersAvailable ? "latest per connected account" : "Meta did not provide a total" },
           { label: "Video views", value: compactNumber(views), helper: `${posts.length} posts in 30 days` },
           { label: "Total engagements", value: compactNumber(engagements), helper: "likes, comments, shares, saves" },
           { label: "Engagement rate", value: `${(engagementRate * 100).toFixed(1)}%`, helper: measuredExposure ? "engagements divided by exposure" : "latest available average" },

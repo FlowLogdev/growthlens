@@ -249,7 +249,6 @@ export async function getPageInsights(pageId: string, pageAccessToken: string) {
     "page_media_view",
     "page_total_media_view_unique",
     "page_post_engagements",
-    "page_follows",
   ]);
 }
 

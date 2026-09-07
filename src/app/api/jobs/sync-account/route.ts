@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
           date: today,
           impressions: metricValue("page_media_view"),
           reach: metricValue("page_total_media_view_unique"),
-          followers: profile.followers_count ?? profile.fan_count ?? metricValue("page_follows"),
+          followers: profile.followers_count ?? profile.fan_count ?? null,
           engagement_rate: metricValue("page_media_view")
             ? (metricValue("page_post_engagements") ?? 0) / metricValue("page_media_view")!
             : null,

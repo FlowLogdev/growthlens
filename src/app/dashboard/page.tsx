@@ -43,13 +43,17 @@ export default async function DashboardOverviewPage({
     }),
     { followers: 0, reach: 0, impressions: 0, engagement: 0 },
   );
-  const latestFollowers = new Map<string, number>();
+  const latestFollowers = new Map<string, number | null>();
   for (const metric of metrics ?? []) {
     if (metric.account_id && !latestFollowers.has(metric.account_id)) {
-      latestFollowers.set(metric.account_id, metric.followers ?? 0);
+      latestFollowers.set(metric.account_id, metric.followers);
     }
   }
-  totals.followers = [...latestFollowers.values()].reduce((sum, value) => sum + value, 0);
+  const followerValues = [...latestFollowers.values()].filter(
+    (value): value is number => typeof value === "number" && Number.isFinite(value),
+  );
+  totals.followers = followerValues.reduce((sum, value) => sum + value, 0);
+  const followersAvailable = followerValues.length > 0;
   const averageEngagement = metrics?.length ? totals.engagement / metrics.length : 0;
   const recommendations = Array.isArray(latestInsight?.recommendations)
     ? latestInsight.recommendations as Array<{ action?: string; why?: string; timeframe?: string }>
@@ -83,7 +87,7 @@ export default async function DashboardOverviewPage({
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Performance summary">
         {[
           { label: "Connected", value: `${accounts?.length ?? 0} / ${getAccountLimit(customer.plan_tier)}`, helper: `${formatStatus(customer.plan_tier)} plan allowance` },
-          { label: "Followers", value: totals.followers.toLocaleString(), helper: "latest synced totals" },
+          { label: "Followers", value: followersAvailable ? totals.followers.toLocaleString() : "Not available", helper: followersAvailable ? "latest synced totals" : "Meta did not provide a total" },
           { label: "Reach", value: totals.reach.toLocaleString(), helper: "recent data points" },
           { label: "Engagement", value: `${(averageEngagement * 100).toFixed(1)}%`, helper: "recent average" },
         ].map((metric) => (
