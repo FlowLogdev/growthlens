@@ -55,7 +55,13 @@ export async function GET(request: NextRequest) {
     });
 
     const supabase = createAdminClient();
-    const expiresAt = new Date(Date.now() + longLived.expires_in * 1000).toISOString();
+    // Meta can omit expires_in when an existing long-lived grant is renewed.
+    // Keep reconnection idempotent instead of failing after the user completes
+    // the entire consent flow. The documented long-lived lifetime is ~60 days.
+    const expiresInSeconds = Number.isFinite(longLived.expires_in)
+      ? longLived.expires_in!
+      : 60 * 24 * 60 * 60;
+    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
 
     const [{ data: customer }, { data: existingAccounts }] = await Promise.all([
       supabase

@@ -66,7 +66,7 @@ export async function exchangeMetaCode(code: string) {
   if (!res.ok) {
     throw new Error(`Meta token exchange failed: ${await res.text()}`);
   }
-  return res.json() as Promise<{ access_token: string; token_type: string; expires_in: number }>;
+  return res.json() as Promise<{ access_token: string; token_type: string; expires_in?: number }>;
 }
 
 // Short-lived user tokens (~1-2h) must be exchanged for a long-lived token
@@ -84,7 +84,7 @@ export async function exchangeForLongLivedToken(shortLivedToken: string) {
   if (!res.ok) {
     throw new Error(`Meta long-lived token exchange failed: ${await res.text()}`);
   }
-  return res.json() as Promise<{ access_token: string; token_type: string; expires_in: number }>;
+  return res.json() as Promise<{ access_token: string; token_type: string; expires_in?: number }>;
 }
 
 export interface MetaPage {
