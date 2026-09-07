@@ -83,6 +83,9 @@ export default async function ConnectPage({
                   </form>
                 </div>
               ))}
+              <a href="/api/oauth/meta" className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#d9ff6b] px-4 text-xs font-bold text-[#172016] transition-transform hover:-translate-y-px">
+                Reconnect Facebook &amp; linked Instagram
+              </a>
             </div>
           ) : metaConfig.ready ? (
             <a href="/api/oauth/meta" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-[#d9ff6b] px-5 text-sm font-bold text-[#172016] transition-transform hover:-translate-y-px">Connect Facebook &amp; linked Instagram</a>
