@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { requestDataDeletion } from "./actions";
+import { BrandLink } from "@/components/brand";
 
 export default function DataDeletionPage() {
   const [state, formAction, pending] = useActionState(requestDataDeletion, null);
@@ -10,9 +11,7 @@ export default function DataDeletionPage() {
   return (
     <main className="legal-shell min-h-[100dvh] px-4 py-12 text-white/72 sm:py-16">
       <div className="mx-auto max-w-xl rounded-2xl border border-white/12 bg-[#0d120f]/84 p-6 shadow-[0_28px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:p-9">
-        <Link href="/home" className="text-sm font-semibold text-white transition-colors hover:text-[#d9ff6b]">
-          GrowthLens
-        </Link>
+        <BrandLink href="/home" />
         <p className="mt-10 text-xs font-semibold uppercase tracking-[0.16em] text-[#d9ff6b]">Account privacy</p>
         <h1 className="mb-4 mt-3 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">Delete your data</h1>
         <p className="mb-6 text-sm leading-6 text-white/58">
