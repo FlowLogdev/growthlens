@@ -29,7 +29,7 @@ const SIGNALS = [
 export default function LandingPage() {
   return (
     <MarketingLayout>
-      <section className="relative isolate min-h-[calc(100dvh-72px)] overflow-hidden border-b border-white/10 bg-[#101513] text-white">
+      <section className="relative isolate min-h-[calc(100dvh-112px)] overflow-hidden border-b border-white/10 bg-[#101513] text-white">
         <Image
           src="/brand/growthlens-hero.png"
           alt="Three streams of social data converging into an upward growth signal"
@@ -47,7 +47,7 @@ export default function LandingPage() {
           className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(8,12,10,0.2)_0%,rgba(8,12,10,0.06)_52%,rgba(8,12,10,0.82)_100%)]"
         />
 
-        <div className="mx-auto grid min-h-[calc(100dvh-72px)] w-full max-w-7xl gap-10 px-4 py-14 sm:px-6 md:py-20 lg:grid-cols-[1fr_0.58fr] lg:items-center lg:px-8 lg:py-24">
+        <div className="mx-auto grid min-h-[calc(100dvh-112px)] w-full max-w-7xl gap-10 px-4 py-14 sm:px-6 md:py-20 lg:grid-cols-[1fr_0.58fr] lg:items-center lg:px-8 lg:py-24">
           <div className="max-w-2xl self-center">
             <p className="inline-flex text-xs font-bold uppercase tracking-[0.15em] text-[#d9ff6b]">
               AI-powered organic growth intelligence

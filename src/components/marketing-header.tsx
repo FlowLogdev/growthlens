@@ -5,7 +5,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-[color:var(--page-translucent)] backdrop-blur-xl">
-      <div className="mx-auto flex h-[72px] w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-[112px] w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <BrandLink className="shrink-0" />
 
         <nav aria-label="Primary" className="hidden items-center gap-7 text-sm md:flex">

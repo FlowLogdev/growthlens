@@ -6,7 +6,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <div className="marketing-page grid min-h-[100dvh] bg-[var(--page)] text-[var(--ink)] lg:grid-cols-[0.9fr_1.1fr]">
       <aside className="relative hidden overflow-hidden bg-[#111712] p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div>
-          <BrandLink className="[--ink:#fff]" />
+          <BrandLink className="[--ink:#fff]" compact />
         </div>
         <div className="max-w-xl">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#d9ff6b]">A clearer weekly rhythm</p>
@@ -25,7 +25,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <main className="flex min-h-[100dvh] items-center justify-center px-4 py-12 sm:px-8">
         <div className="w-full max-w-md">
           <div className="mb-10 flex items-center justify-between lg:hidden">
-            <BrandLink />
+            <BrandLink compact />
             <Link href="/" className="text-sm text-[var(--muted)]">Home</Link>
           </div>
           {children}

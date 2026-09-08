@@ -1,15 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
-import wordmark from "../../public/brand/growthlens-wordmark.png";
+import logo from "../../public/brand/growthlens-full.jpg";
 
 export function BrandMark({ compact = false }: { compact?: boolean }) {
-  const height = compact ? 20 : 24;
-  const width = Math.round(height * (wordmark.width / wordmark.height));
+  const height = compact ? 56 : 96;
+  const width = Math.round(height * (logo.width / logo.height));
 
   return (
-    <span className="inline-flex items-center rounded-md bg-neutral-950 px-2 py-1.5">
+    <span className="inline-flex items-center overflow-hidden rounded-md">
       <Image
-        src={wordmark}
+        src={logo}
         alt="GrowthLens"
         height={height}
         width={width}
@@ -20,10 +20,18 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
     </span>
   );
 }
-export function BrandLink({ className = "", href = "/home" }: { className?: string; href?: string }) {
+export function BrandLink({
+  className = "",
+  href = "/home",
+  compact = false,
+}: {
+  className?: string;
+  href?: string;
+  compact?: boolean;
+}) {
   return (
     <Link href={href} aria-label="GrowthLens home" className={className}>
-      <BrandMark />
+      <BrandMark compact={compact} />
     </Link>
   );
 }

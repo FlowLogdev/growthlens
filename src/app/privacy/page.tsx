@@ -16,7 +16,7 @@ export default function PrivacyPolicyPage() {
   return (
     <main className="legal-shell min-h-[100dvh] text-white/72">
       <div className="legal-content relative mx-auto max-w-4xl px-5 py-12 sm:px-10 sm:py-16">
-        <BrandLink href="/home" />
+        <BrandLink href="/home" compact />
 
         <header className="mt-10 border-b border-gray-200 pb-8">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
